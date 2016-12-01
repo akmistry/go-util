@@ -42,3 +42,22 @@ func TestMarshal(t *testing.T) {
 		t.Error("Invalid signature")
 	}
 }
+
+func TestSign(t *testing.T) {
+	priv, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
+	if err != nil {
+		t.Fatal("Error creating ECDSA key", err)
+	}
+
+	msg := make([]byte, 32)
+	rand.Read(msg)
+
+	sign, err := SignEC(priv, msg)
+	if err != nil {
+		t.Fatal("Error signing", err)
+	}
+
+	if !VerifyECSig(&priv.PublicKey, msg, sign) {
+		t.Error("Invalid signature")
+	}
+}
