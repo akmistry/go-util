@@ -34,6 +34,9 @@ func (h *hijackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Server does not suport hijacking", http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
+
 	conn, bufrw, err := hj.Hijack()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
