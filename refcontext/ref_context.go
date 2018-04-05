@@ -29,6 +29,10 @@ func (c *RefContext) watchCtx() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	defer func() {
+		c.ctxs = nil
+	}()
+
 	for {
 		ctx := c.ctxs[0]
 
