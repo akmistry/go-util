@@ -41,6 +41,10 @@ type result struct {
 	err error
 }
 
+func isContextError(err error) bool {
+	return err == context.DeadlineExceeded || err == context.Canceled
+}
+
 func DoSlice(ctx context.Context, slice interface{}, f Func, opts *Options) (interface{}, error) {
 	rv := reflect.ValueOf(slice)
 	if rv.Kind() != reflect.Slice {
@@ -71,21 +75,24 @@ func DoSlice(ctx context.Context, slice interface{}, f Func, opts *Options) (int
 }
 
 func Do(ctx context.Context, ch <-chan interface{}, f Func, opts *Options) (interface{}, error) {
-	// Intentionally unbuffered.
-	resultCh := make(chan result)
 	done := make(chan struct{})
+	ctx, cf := context.WithCancel(ctx)
 	defer func() {
+		cf()
 		// Wait for this channel to be closed to ensure all child goroutines are
 		// closed.
 		<-done
 	}()
 
-	ctx, cf := context.WithCancel(ctx)
-	defer cf()
+	// Intentionally unbuffered.
+	resultCh := make(chan result)
 
 	go func() {
 		defer close(done)
 		defer close(resultCh)
+
+		failoverCh := make(chan struct{}, 1)
+		defer close(failoverCh)
 
 		var wg sync.WaitGroup
 		defer wg.Wait()
@@ -102,10 +109,12 @@ func Do(ctx context.Context, ch <-chan interface{}, f Func, opts *Options) (inte
 				go func() {
 					defer wg.Done()
 					out, err := f(ctx, arg)
-					// Ignore context errors.
-					if err != nil && err == ctx.Err() {
-						if cl, ok := out.(io.Closer); ok {
-							cl.Close()
+					// Ignore context and failover errors.
+					if isContextError(err) || err == ErrFailover {
+						// Try and trigger a fast failover and bypass the timeout.
+						select {
+						case failoverCh <- struct{}{}:
+						default:
 						}
 						return
 					}
@@ -142,15 +151,14 @@ func Do(ctx context.Context, ch <-chan interface{}, f Func, opts *Options) (inte
 			case <-ctx.Done():
 				return
 			case <-time.After(timeout):
+			case <-failoverCh:
 			}
 		}
 	}()
 
-	for r := range resultCh {
-		if r.err != ErrFailover {
-			return r.v, r.err
-		}
-		// r.err == ErrFailover, wait for the next result.
+	r, ok := <-resultCh
+	if ok {
+		return r.v, r.err
 	}
 
 	// Channel closed, all requests completed.

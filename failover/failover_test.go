@@ -25,6 +25,7 @@ func TestFailover(t *testing.T) {
 		if i == 1 {
 			return 1, nil
 		}
+		time.Sleep(opts.InitialTimeout)
 		return nil, ErrFailover
 	}
 
@@ -49,6 +50,7 @@ func TestFailoverSlice(t *testing.T) {
 		if i == 1 {
 			return 1, nil
 		}
+		time.Sleep(opts.InitialTimeout)
 		return nil, ErrFailover
 	}
 
@@ -108,6 +110,20 @@ func TestFailoverNoResult(t *testing.T) {
 	r, err := Do(context.Background(), ch, f, opts)
 	expectEqual(t, ErrNoResult, err)
 	expectEqual(t, nil, r)
+}
+
+func TestFailoverFast(t *testing.T) {
+	f := func(ctx context.Context, iface interface{}) (interface{}, error) {
+		return nil, ErrFailover
+	}
+
+	startTime := time.Now()
+	r, err := DoSlice(context.Background(), []int{0, 1, 2}, f, opts)
+	expectEqual(t, ErrNoResult, err)
+	expectEqual(t, nil, r)
+	if time.Since(startTime) > opts.InitialTimeout {
+		t.Errorf("Failover time %v too slow", time.Since(startTime))
+	}
 }
 
 func TestFailoverError(t *testing.T) {
@@ -247,6 +263,7 @@ func TestFailoverStagger(t *testing.T) {
 		} else if i > 0 && time.Since(startTime) > maxDelay {
 			t.Errorf("failover delay %v too long, expected %v", time.Since(startTime), expectedDelay)
 		}
+		time.Sleep(2 * testOpts.InitialTimeout)
 		return nil, ErrFailover
 	}
 
