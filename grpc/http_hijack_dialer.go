@@ -12,18 +12,13 @@ import (
 
 type Dialer func(string, time.Duration) (net.Conn, error)
 
-func NewDialerInsecure(urlStr string) (Dialer, error) {
-	return NewDialer(urlStr, &tls.Config{InsecureSkipVerify: true})
+func NewDialerInsecure() (Dialer, error) {
+	return NewDialer(&tls.Config{InsecureSkipVerify: true})
 }
 
-func NewDialer(urlStr string, conf *tls.Config) (Dialer, error) {
-	_, err := url.Parse(urlStr)
-	if err != nil {
-		return nil, err
-	}
-
+func NewDialer(conf *tls.Config) (Dialer, error) {
 	return func(addr string, timeout time.Duration) (net.Conn, error) {
-		return dialAndHijack(urlStr, timeout, conf)
+		return dialAndHijack(addr, timeout, conf)
 	}, nil
 }
 
