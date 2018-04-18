@@ -1,9 +1,10 @@
 package parallelwriter
 
 import (
-	"bytes"
 	"io"
 	"sync"
+
+	"github.com/akmistry/go-util/bufferpool"
 )
 
 // Writer serialises and batches concurrent writes, to minimise Write calls to
@@ -15,7 +16,7 @@ import (
 type Writer struct {
 	w io.Writer
 
-	buf  *bytes.Buffer
+	buf  *bufferpool.Buffer
 	done chan struct{}
 	err  error
 	lock sync.Mutex
@@ -50,18 +51,19 @@ func (w *Writer) Write(b []byte) (int, error) {
 		return len(b), nil
 	}
 
-	w.buf = new(bytes.Buffer)
-	w.buf.Write(b)
+	buf := bufferpool.NewBuffer(b)
+	defer buf.Reset()
 	done := make(chan struct{})
-	w.done = done
 	defer close(done)
+
+	w.buf = buf
+	w.done = done
 
 	w.lock.Unlock()
 	w.writeLock.Lock()
 	defer w.writeLock.Unlock()
 	w.lock.Lock()
 
-	buf := w.buf
 	w.buf = nil
 	w.done = nil
 
@@ -70,7 +72,7 @@ func (w *Writer) Write(b []byte) (int, error) {
 	}
 
 	w.lock.Unlock()
-	_, err := buf.WriteTo(w.w)
+	_, err := w.w.Write(buf.Bytes())
 	w.lock.Lock()
 
 	w.err = err
