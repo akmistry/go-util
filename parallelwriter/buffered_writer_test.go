@@ -2,6 +2,7 @@ package parallelwriter
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -29,6 +30,7 @@ func TestBufferedWriter(t *testing.T) {
 	outBuf := new(flushWriter)
 	w := NewBufferedWriter(outBuf, bufferSize)
 
+	var written int32
 	var wg sync.WaitGroup
 	wg.Add(threads)
 	for i := 0; i < threads; i++ {
@@ -36,10 +38,11 @@ func TestBufferedWriter(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < loops; j++ {
 				buf := generatePacket(maxPayload)
-				_, err := w.Write(buf)
+				n, err := w.Write(buf)
 				if err != nil {
 					t.Errorf("Error writing: %v", err)
 				}
+				atomic.AddInt32(&written, int32(n))
 				if j%flushPeriod == 0 {
 					err = w.Flush()
 					if err != nil {
@@ -50,6 +53,7 @@ func TestBufferedWriter(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+	w.Flush()
 
 	w.Close()
 	buf := generatePacket(maxPayload)
@@ -60,6 +64,10 @@ func TestBufferedWriter(t *testing.T) {
 	err = w.Flush()
 	if err != ErrClosed {
 		t.Errorf("Unexpected error flushing: %v", err)
+	}
+
+	if int(written) != outBuf.Len() {
+		t.Errorf("written %d != output %d", written, outBuf.Len())
 	}
 
 	if outBuf.flushCount < loops/flushPeriod {

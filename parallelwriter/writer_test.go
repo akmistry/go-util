@@ -8,6 +8,7 @@ import (
 	"hash/fnv"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -80,6 +81,7 @@ func TestWriter(t *testing.T) {
 	outBuf := new(countingWriter)
 	w := NewWriter(outBuf)
 
+	var written int32
 	var wg sync.WaitGroup
 	wg.Add(threads)
 	for i := 0; i < threads; i++ {
@@ -87,14 +89,19 @@ func TestWriter(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < loops; j++ {
 				buf := generatePacket(maxPayload)
-				_, err := w.Write(buf)
+				n, err := w.Write(buf)
 				if err != nil {
 					t.Errorf("Error writing: %v", err)
 				}
+				atomic.AddInt32(&written, int32(n))
 			}
 		}()
 	}
 	wg.Wait()
+
+	if int(written) != outBuf.Len() {
+		t.Errorf("written %d != output %d", written, outBuf.Len())
+	}
 
 	checkBuffer(t, outBuf.Bytes())
 	t.Logf("written bytes: %d, write count: %d", outBuf.Len(), outBuf.count)
@@ -131,6 +138,7 @@ func TestWriterError(t *testing.T) {
 	outBuf := &failingWriter{failCount: 1234567}
 	w := NewWriter(outBuf)
 
+	var written int32
 	var wg sync.WaitGroup
 	wg.Add(threads)
 	for i := 0; i < threads; i++ {
@@ -139,16 +147,23 @@ func TestWriterError(t *testing.T) {
 			expectFail := false
 			for j := 0; j < loops; j++ {
 				buf := generatePacket(maxPayload)
-				_, err := w.Write(buf)
+				n, err := w.Write(buf)
 				if expectFail && err == nil {
 					t.Errorf("expected failure")
 				} else if err != nil {
 					expectFail = true
 				}
+				atomic.AddInt32(&written, int32(n))
 			}
 		}()
 	}
 	wg.Wait()
+
+	if int(written) > outBuf.Len() {
+		t.Errorf("written %d > output %d", written, outBuf.Len())
+	} else if int(written) < outBuf.Len()-(threads*maxPayload) {
+		t.Errorf("written %d < output-(threads*maxPayload) %d", written, outBuf.Len()-(threads*maxPayload))
+	}
 
 	checkBuffer(t, outBuf.Bytes())
 	t.Logf("written bytes: %d, write count: %d", outBuf.Len(), outBuf.count)
