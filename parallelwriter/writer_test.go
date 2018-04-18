@@ -28,7 +28,15 @@ func generatePacket(maxPayload int) []byte {
 }
 
 func verifyPacket(buf []byte) (int, error) {
+	if len(buf) < 4 {
+		// Incomplete packet, not an error.
+		return len(buf), nil
+	}
 	length := binary.LittleEndian.Uint32(buf)
+	if len(buf) < int(length) {
+		// Incomplete packet, not an error.
+		return len(buf), nil
+	}
 	hash := binary.LittleEndian.Uint32(buf[4:])
 
 	h := fnv.New32a()
@@ -98,13 +106,18 @@ type failingWriter struct {
 	bytes.Buffer
 	failCount int
 	count     int
+	failed    bool
 }
 
 func (w *failingWriter) Write(buf []byte) (int, error) {
+	if w.failed {
+		panic("Write call after failure")
+	}
 	// Blocking the write for a little bit causes more batching.
 	time.Sleep(time.Microsecond)
 	w.count++
 	if w.Len() > w.failCount {
+		w.failed = true
 		return 0, errFail
 	}
 	return w.Buffer.Write(buf)
