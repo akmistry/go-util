@@ -29,6 +29,10 @@ func NewStore(name string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
+func (t *Store) DB() *badger.DB {
+	return t.db
+}
+
 func (t *Store) Close() {
 	t.db.Close()
 }
