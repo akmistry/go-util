@@ -29,6 +29,9 @@ func NewWriter(w io.Writer) *Writer {
 	return &Writer{w: w}
 }
 
+// Write serialises and batches writes to the underlying Writer. Parallel
+// writes are atomic, and buffers are never interleaved or broken to the
+// underlying Writer.
 func (w *Writer) Write(b []byte) (int, error) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
