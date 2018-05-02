@@ -4,6 +4,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 const (
@@ -72,6 +73,35 @@ func TestBufferedWriter(t *testing.T) {
 
 	if outBuf.flushCount < loops/flushPeriod {
 		t.Errorf("flush count %d < minimum expected %d", outBuf.flushCount, loops/flushPeriod)
+	}
+
+	checkBuffer(t, outBuf.Bytes())
+	t.Logf("written bytes: %d, write count: %d, flush count: %d",
+		outBuf.Len(), outBuf.count, outBuf.flushCount)
+}
+
+func TestBufferedWriterShortWrite(t *testing.T) {
+	outBuf := new(flushWriter)
+	w := NewBufferedWriter(outBuf, bufferSize)
+	time.Sleep(10 * time.Millisecond)
+
+	buf := generatePacket(maxPayload)
+	written, err := w.Write(buf)
+	if err != nil {
+		t.Errorf("Error writing: %v", err)
+	}
+
+	// NOTE: Racy!
+	start := time.Now()
+	for outBuf.count == 0 {
+		if time.Since(start) > time.Second {
+			t.Fatal("waited too long for write")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if written != outBuf.Len() {
+		t.Errorf("written %d != output %d", written, outBuf.Len())
 	}
 
 	checkBuffer(t, outBuf.Bytes())

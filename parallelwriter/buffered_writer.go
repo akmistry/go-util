@@ -189,6 +189,7 @@ func (b *BufferedWriter) Write(buf []byte) (int, error) {
 	if bo == nil {
 		bo = new(bufferedOp)
 		b.ops.PushFront(bo)
+		b.cond.Signal()
 	}
 	bo.length += len(buf)
 	n, err := b.rb.Write(buf)
