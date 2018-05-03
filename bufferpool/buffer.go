@@ -16,6 +16,9 @@ func NewBuffer(buf []byte) *Buffer {
 
 func (b *Buffer) growIfNecessary(n int) {
 	if b.donated || len(b.buf)+n > cap(b.buf) {
+		if b.buf == nil && n < MinBufferSize {
+			n = MinBufferSize
+		}
 		newBuf := Get(len(b.buf) + n)[:0]
 		newBuf = append(newBuf, b.buf...)
 		if b.buf != nil && !b.donated {

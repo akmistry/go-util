@@ -8,6 +8,8 @@ import (
 const (
 	MinSizeBits = 4
 	MaxSizeBits = 24
+
+	MinBufferSize = 1 << MinSizeBits
 )
 
 var pool [MaxSizeBits + 1]*sync.Pool
