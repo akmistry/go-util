@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	MaxValueLogFileSize = 256 << 20
+	MaxValueLogFileSize      = 256 << 20
+	MaxDeleteTransactionSize = 1024
 )
 
 type Store struct {
@@ -82,6 +83,39 @@ func (t *Store) Delete(key string) error {
 	return t.db.Update(func(txn *badger.Txn) error {
 		return txn.Delete([]byte(key))
 	})
+}
+
+// DeleteRange deletes the range of keys [start, end). The range is open and
+// the end key is not deleted. Returns nil if all keys in the range are
+// deleted. There are no guarantees which keys have been deleted on error.
+func (t *Store) DeleteRange(start, end string) error {
+	startKey := []byte(start)
+	endKey := []byte(end)
+	more := true
+	var err error
+	for more && err == nil {
+		more = false
+		err = t.db.Update(func(txn *badger.Txn) error {
+			iter := txn.NewIterator(badger.IteratorOptions{})
+			defer iter.Close()
+			iter.Seek(startKey)
+			for i := 0; iter.Valid() && i < MaxDeleteTransactionSize; i++ {
+				if bytes.Compare(iter.Item().Key(), endKey) >= 0 {
+					break
+				}
+				// Txn.Delete holds onto the key slice, so we have to make a copy
+				// before passing. Sigh!
+				err := txn.Delete(append([]byte(nil), iter.Item().Key()...))
+				if err != nil {
+					return err
+				}
+				more = true
+				iter.Next()
+			}
+			return nil
+		})
+	}
+	return err
 }
 
 func (t *Store) AtomicPut(key string, value []byte, previous *store.KVPair, options *store.WriteOptions) (bool, *store.KVPair, error) {
