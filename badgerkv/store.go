@@ -11,7 +11,7 @@ import (
 
 const (
 	MaxValueLogFileSize      = 256 << 20
-	MaxDeleteTransactionSize = 1024
+	MaxDeleteTransactionSize = 65536
 )
 
 type Store struct {
@@ -106,7 +106,9 @@ func (t *Store) DeleteRange(start, end string) error {
 				// Txn.Delete holds onto the key slice, so we have to make a copy
 				// before passing. Sigh!
 				err := txn.Delete(append([]byte(nil), iter.Item().Key()...))
-				if err != nil {
+				if err == badger.ErrTxnTooBig {
+					break
+				} else if err != nil {
 					return err
 				}
 				more = true
