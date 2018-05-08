@@ -4,6 +4,7 @@ package badgerkv
 
 import (
 	"bytes"
+	"runtime"
 
 	"github.com/dgraph-io/badger"
 	"github.com/docker/libkv/store"
@@ -105,7 +106,7 @@ func (t *Store) DeleteRange(start, end string) error {
 				}
 				// Txn.Delete holds onto the key slice, so we have to make a copy
 				// before passing. Sigh!
-				err := txn.Delete(append([]byte(nil), iter.Item().Key()...))
+				err := txn.Delete(iter.Item().KeyCopy(nil))
 				if err == badger.ErrTxnTooBig {
 					break
 				} else if err != nil {
@@ -116,6 +117,16 @@ func (t *Store) DeleteRange(start, end string) error {
 			}
 			return nil
 		})
+		if more {
+			// The GC relies on scheduling points (channel send/receive, futex
+			// blocks, go, etc) to stop the world in order to start a GC. For an
+			// uncontended database, Badger doesn't do any of these, but it does
+			// allocate a lot of memory. To allow the GC to run, we explicitly call
+			// Gosched which tests/runs any pending STW so that the GC can start
+			// collecting.
+			// Of course, I could be completely wrong.
+			runtime.Gosched()
+		}
 	}
 	return err
 }
