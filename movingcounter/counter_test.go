@@ -81,3 +81,77 @@ func TestCounter(t *testing.T) {
 		t.Errorf("max %d != 0", max)
 	}
 }
+
+func TestCounterFastForward(t *testing.T) {
+	clock := newTestClock(time.Now())
+	c := NewMovingCounter(clock, time.Minute, 100, Int64Value(0))
+	sum := 0
+	for i := 1; i <= 60; i++ {
+		sum += i
+		c.Add(Int64Value(i))
+		if i < 60 {
+			clock.advance(time.Second)
+		}
+	}
+
+	if total, count := c.Total(); count != 60 || total.(Int64Value) != Int64Value(sum) {
+		t.Errorf("count %d, total %d", count, total.(Int64Value))
+	}
+	if min := c.Min().(Int64Value); min != 1 {
+		t.Errorf("min %d != 1", min)
+	}
+	if max := c.Max().(Int64Value); max != 60 {
+		t.Errorf("max %d != 60", max)
+	}
+
+	sum = 0
+	for i := 31; i <= 60; i++ {
+		sum += i
+	}
+	clock.advance(30 * time.Second)
+	if total, count := c.Total(); count != 30 || total.(Int64Value) != Int64Value(sum) {
+		t.Errorf("count %d, total %d, expected: %d", count, total.(Int64Value), sum)
+	}
+	if min := c.Min().(Int64Value); min != 31 {
+		t.Errorf("min %d != 31", min)
+	}
+	if max := c.Max().(Int64Value); max != 60 {
+		t.Errorf("max %d != 6", max)
+	}
+
+	clock.advance(123 * time.Second)
+	if total, count := c.Total(); count != 0 || total.(Int64Value) != 0 {
+		t.Errorf("count %d, total %d", count, total.(Int64Value))
+	}
+	if min := c.Min().(Int64Value); min != 0 {
+		t.Errorf("min %d != 0", min)
+	}
+	if max := c.Max().(Int64Value); max != 0 {
+		t.Errorf("max %d != 0", max)
+	}
+}
+
+func BenchmarkCounter(b *testing.B) {
+	clock := newTestClock(time.Now())
+	c := NewMovingCounter(clock, time.Minute, 100, Int64Value(0))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		c.Add(Int64Value(i))
+		clock.advance(time.Second)
+	}
+}
+
+func BenchmarkCounterNoAdvance(b *testing.B) {
+	clock := newTestClock(time.Now())
+	c := NewMovingCounter(clock, time.Minute, 100, Int64Value(0))
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		c.Add(Int64Value(i))
+	}
+}

@@ -116,6 +116,8 @@ func (c *MovingCounter) getBucket(now time.Time) *counterBucket {
 			bucket = &c.buckets[bucketIndex]
 			if !bucket.startTime.IsZero() && bucket.startTime.Before(firstTime) {
 				bucket.reset(time.Time{})
+			} else if bucket.startTime.After(firstTime) {
+				break
 			}
 		}
 		bucketIndex = int(c.currIndex % int64(len(c.buckets)))
