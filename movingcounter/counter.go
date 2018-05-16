@@ -49,9 +49,8 @@ type MovingCounter struct {
 	period, bucketPeriod time.Duration
 	zero                 Value
 
-	buckets    []counterBucket
-	firstIndex int64
-	currIndex  int64
+	buckets       []counterBucket
+	first, active int
 
 	total Value
 	count uint64
@@ -102,23 +101,24 @@ func NewMovingCounter(clock Clock, period time.Duration, numBuckets int, zero Va
 }
 
 func (c *MovingCounter) expireOld(now time.Time) {
-	nowIndex := now.UnixNano() / c.bucketPeriod.Nanoseconds()
-	expectedFirst := nowIndex - int64(len(c.buckets)) + 1
-	for ; c.firstIndex <= c.currIndex && c.firstIndex < expectedFirst; c.firstIndex++ {
-		bucketIndex := int(c.firstIndex % int64(len(c.buckets)))
-		bucket := &c.buckets[bucketIndex]
-		if bucket.startTime.IsZero() {
-			continue
+	firstTime := now.Add(-c.period)
+	for c.active > 0 {
+		bucket := c.buckets[c.first]
+		if bucket.startTime.After(firstTime) {
+			break
 		}
 		if bucket.count > 0 {
 			c.count -= bucket.count
 			c.total = c.total.Sub(bucket.total)
 		}
 		bucket.reset(time.Time{})
+		c.active--
+		c.first = (c.first + 1) % len(c.buckets)
 	}
-	if c.firstIndex > c.currIndex {
+
+	if c.active == 0 {
 		// Expired everything.
-		c.firstIndex = c.currIndex
+		c.first = 0
 		if c.count != 0 {
 			panic("c.count != 0")
 		}
@@ -135,44 +135,36 @@ func (c *MovingCounter) expireOld(now time.Time) {
 }
 
 func (c *MovingCounter) getBucket(now time.Time) *counterBucket {
-	bucketIndex := int(c.currIndex % int64(len(c.buckets)))
-	bucket := &c.buckets[bucketIndex]
-	diff := now.Sub(bucket.startTime)
-	if !bucket.startTime.IsZero() && diff >= 0 && diff < c.bucketPeriod {
-		return bucket
-	}
-
-	bucketStartTime := now.Truncate(c.bucketPeriod)
-	timeIndex := now.UnixNano() / c.bucketPeriod.Nanoseconds()
-	if timeIndex < c.firstIndex {
-		// Bucket before the current time window.
-		return nil
-	} else if timeIndex <= c.currIndex {
-		// Bucket within the current time window.
-		bucketIndex = int(timeIndex % int64(len(c.buckets)))
-		return &c.buckets[bucketIndex]
+	if c.active > 0 {
+		currIndex := (c.first + c.active - 1) % len(c.buckets)
+		bucket := &c.buckets[currIndex]
+		if now.Before(bucket.startTime) {
+			// Going backwards in time.
+			return nil
+		} else if now.Before(bucket.startTime.Add(c.bucketPeriod)) {
+			return bucket
+		}
 	}
 
 	c.expireOld(now)
-
-	c.currIndex = timeIndex
-	newFirst := timeIndex - int64(len(c.buckets)) + 1
-	if c.firstIndex < newFirst {
-		c.firstIndex = newFirst
+	if c.active >= len(c.buckets) {
+		panic("c.active >= len(c.buckets)")
 	}
-
-	bucketIndex = int(c.currIndex % int64(len(c.buckets)))
-	bucket = &c.buckets[bucketIndex]
-	bucket.reset(bucketStartTime)
+	c.active++
+	index := (c.first + c.active - 1) % len(c.buckets)
+	bucket := &c.buckets[index]
+	ut := now.UnixNano()
+	st := ut - (ut % c.bucketPeriod.Nanoseconds())
+	bucket.reset(time.Unix(0, st))
 
 	return bucket
 }
 
-func (c *MovingCounter) iterate(now time.Time, f func(*counterBucket)) {
-	for i := c.firstIndex; i <= c.currIndex; i++ {
-		bucketIndex := int(i % int64(len(c.buckets)))
-		b := &c.buckets[bucketIndex]
-		if b.startTime.IsZero() || b.count == 0 {
+func (c *MovingCounter) iterate(f func(*counterBucket)) {
+	for i := 0; i < c.active; i++ {
+		index := (c.first + i) % len(c.buckets)
+		b := &c.buckets[index]
+		if b.count == 0 {
 			continue
 		}
 		f(b)
@@ -205,7 +197,7 @@ func (c *MovingCounter) Min() Value {
 	c.expireOld(c.clock.Now())
 	min := c.zero
 	hasVal := false
-	c.iterate(c.clock.Now(), func(b *counterBucket) {
+	c.iterate(func(b *counterBucket) {
 		if !hasVal {
 			min = b.min
 			hasVal = true
@@ -221,7 +213,7 @@ func (c *MovingCounter) Max() Value {
 	c.expireOld(c.clock.Now())
 	max := c.zero
 	hasVal := false
-	c.iterate(c.clock.Now(), func(b *counterBucket) {
+	c.iterate(func(b *counterBucket) {
 		if !hasVal {
 			max = b.max
 			hasVal = true

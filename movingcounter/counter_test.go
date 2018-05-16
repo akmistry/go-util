@@ -1,6 +1,7 @@
 package movingcounter
 
 import (
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -128,6 +129,16 @@ func TestCounterFastForward(t *testing.T) {
 	}
 	if max := c.Max().(Int64Value); max != 0 {
 		t.Errorf("max %d != 0", max)
+	}
+}
+
+func TestCounterAdvancing(t *testing.T) {
+	clock := newTestClock(time.Now())
+	c := NewMovingCounter(clock, time.Minute, 100, Int64Value(0))
+
+	for i := 0; i < 1000000; i++ {
+		c.Add(Int64Value(i))
+		clock.advance(time.Duration(rand.Int63n(time.Second.Nanoseconds())))
 	}
 }
 
