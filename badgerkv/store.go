@@ -147,12 +147,14 @@ func (t *Store) AtomicPut(key string, value []byte, previous *store.KVPair, opti
 		}
 
 		if previous != nil {
-			oldVal, err := item.Value()
+			err = item.Value(func(oldVal []byte) error {
+				if !bytes.Equal(previous.Value, oldVal) {
+					return store.ErrKeyModified
+				}
+				return nil
+			})
 			if err != nil {
 				return err
-			}
-			if !bytes.Equal(previous.Value, oldVal) {
-				return store.ErrKeyModified
 			}
 		}
 
@@ -184,12 +186,14 @@ func (t *Store) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 			return err
 		}
 
-		oldVal, err := item.Value()
+		err = item.Value(func (oldVal []byte) error {
+			if !bytes.Equal(previous.Value, oldVal) {
+				return store.ErrKeyModified
+			}
+			return nil
+		})
 		if err != nil {
 			return err
-		}
-		if previous != nil && !bytes.Equal(previous.Value, oldVal) {
-			return store.ErrKeyModified
 		}
 
 		return txn.Delete(bKey)
