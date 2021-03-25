@@ -20,7 +20,7 @@ type Store struct {
 }
 
 func NewStore(name string) (*Store, error) {
-	opts := badger.DefaultOptions
+	opts := badger.DefaultOptions(name)
 	opts.Dir = name
 	opts.ValueDir = name
 	opts.ValueLogFileSize = MaxValueLogFileSize
