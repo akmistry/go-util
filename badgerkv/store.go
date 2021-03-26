@@ -19,6 +19,9 @@ type Store struct {
 	db *badger.DB
 }
 
+// Ensure Store satisfies store.Store interface
+var _ = (store.Store)((*Store)(nil))
+
 func NewStore(name string) (*Store, error) {
 	opts := badger.DefaultOptions(name)
 	opts.Dir = name
@@ -186,7 +189,7 @@ func (t *Store) AtomicDelete(key string, previous *store.KVPair) (bool, error) {
 			return err
 		}
 
-		err = item.Value(func (oldVal []byte) error {
+		err = item.Value(func(oldVal []byte) error {
 			if !bytes.Equal(previous.Value, oldVal) {
 				return store.ErrKeyModified
 			}
