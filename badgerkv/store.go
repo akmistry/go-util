@@ -15,6 +15,12 @@ const (
 	MaxDeleteTransactionSize = 65536
 )
 
+var (
+	ErrKeyNotFound = store.ErrKeyNotFound
+	ErrKeyExists   = store.ErrKeyExists
+	ErrKeyModified = store.ErrKeyModified
+)
+
 type Store struct {
 	db *badger.DB
 }
