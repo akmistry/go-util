@@ -13,6 +13,8 @@ import (
 const (
 	MaxValueLogFileSize      = 256 << 20
 	MaxDeleteTransactionSize = 65536
+
+	MaxListedKeys = 16
 )
 
 var (
@@ -23,6 +25,13 @@ var (
 
 type Store struct {
 	db *badger.DB
+}
+
+type Lister interface {
+	// Returns a list of consecutive keys beginning with |start|. The number of
+	// keys returned is undefined, but will be at least 1, unless there are no
+	// keys, in which case the nil list will be returned.
+	ListKeys(start string) ([]string, error)
 }
 
 // Ensure Store satisfies store.Store interface
@@ -229,4 +238,26 @@ func (*Store) List(directory string) ([]*store.KVPair, error) {
 
 func (*Store) DeleteTree(directory string) error {
 	return store.ErrCallNotSupported
+}
+
+func (t *Store) ListKeys(start string) ([]string, error) {
+	startKey := []byte(start)
+	var keys []string
+	err := t.db.View(func(txn *badger.Txn) error {
+		iter := txn.NewIterator(badger.IteratorOptions{})
+		defer iter.Close()
+		iter.Seek(startKey)
+		for i := 0; iter.Valid() && i < MaxListedKeys; i++ {
+			if keys == nil {
+				keys = make([]string, 0, MaxListedKeys)
+			}
+			keys = append(keys, string(iter.Item().Key()))
+			iter.Next()
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return keys, nil
 }
