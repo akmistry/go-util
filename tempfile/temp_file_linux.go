@@ -10,6 +10,9 @@ import (
 )
 
 func MakeTempFile(dir string) (File, error) {
+	if dir == "" {
+		dir = os.TempDir()
+	}
 	fd, err := unix.Open(dir, unix.O_RDWR|unix.O_CLOEXEC|unix.O_TMPFILE|unix.O_EXCL, 0600)
 	if err == nil {
 		return os.NewFile(uintptr(fd), "<temp file>"), nil
