@@ -14,6 +14,11 @@ const (
 	BlockSize = 4096
 )
 
+var (
+	zWriterPool = sync.Pool{}
+	zReaderPool = sync.Pool{}
+)
+
 // A Buffer is a variable-sized buffer, with Write and ReadAt methods (Read can
 // be done using io.SectionReader). The zero value for Buffer is an empty
 // buffer ready to use. Buffer contains internal synchronisation, allowing for
@@ -24,7 +29,6 @@ type Buffer struct {
 	compressedSize int64
 
 	writeBuf bytes.Buffer
-	zw       *zlib.Writer
 
 	lock sync.Mutex
 }
@@ -34,22 +38,25 @@ func (b *Buffer) flushWriter() error {
 		log.Panicf("Invalid flush size %d", b.writeBuf.Len())
 	}
 	var compBuf bytes.Buffer
-	if b.zw == nil {
+	var zw *zlib.Writer
+	if zwi := zWriterPool.Get(); zwi != nil {
+		zw = zwi.(*zlib.Writer)
+		zw.Reset(&compBuf)
+	} else {
 		var err error
-		b.zw, err = zlib.NewWriterLevel(&compBuf, zlib.BestSpeed)
+		zw, err = zlib.NewWriterLevel(&compBuf, zlib.BestSpeed)
 		if err != nil {
 			panic(err)
 		}
-	} else {
-		b.zw.Reset(&compBuf)
 	}
-	n, err := b.writeBuf.WriteTo(b.zw)
+	defer zWriterPool.Put(zw)
+	n, err := b.writeBuf.WriteTo(zw)
 	if err != nil {
 		return err
 	} else if n != BlockSize {
 		log.Panicf("Zlib written %d != buffer size %d", n, BlockSize)
 	}
-	err = b.zw.Close()
+	err = zw.Close()
 	if err != nil {
 		return err
 	}
@@ -100,14 +107,22 @@ func (b *Buffer) CompressedSize() int64 {
 }
 
 func (b *Buffer) readBlock(i int) ([]byte, error) {
-	r, err := zlib.NewReader(bytes.NewReader(b.blocks[i]))
+	var err error
+	var zr io.ReadCloser
+	if zri := zReaderPool.Get(); zri != nil {
+		zr = zri.(io.ReadCloser)
+		err = zr.(zlib.Resetter).Reset(bytes.NewReader(b.blocks[i]), nil)
+	} else {
+		zr, err = zlib.NewReader(bytes.NewReader(b.blocks[i]))
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer zReaderPool.Put(zr)
+	defer zr.Close()
 
 	buf := make([]byte, BlockSize)
-	_, err = io.ReadFull(r, buf)
+	_, err = io.ReadFull(zr, buf)
 	if err != nil {
 		return nil, err
 	}
