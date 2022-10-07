@@ -33,9 +33,9 @@ type Buffer struct {
 	lock sync.Mutex
 }
 
-func (b *Buffer) flushWriter() error {
-	if b.writeBuf.Len() != BlockSize {
-		log.Panicf("Invalid flush size %d", b.writeBuf.Len())
+func (b *Buffer) appendBlock(p []byte) error {
+	if len(p) != BlockSize {
+		log.Panicf("Invalid flush size %d", len(p))
 	}
 	var compBuf bytes.Buffer
 	var zw *zlib.Writer
@@ -50,7 +50,7 @@ func (b *Buffer) flushWriter() error {
 		}
 	}
 	defer zWriterPool.Put(zw)
-	n, err := b.writeBuf.WriteTo(zw)
+	n, err := zw.Write(p)
 	if err != nil {
 		return err
 	} else if n != BlockSize {
@@ -62,6 +62,14 @@ func (b *Buffer) flushWriter() error {
 	}
 	b.compressedSize += int64(compBuf.Len())
 	b.blocks = append(b.blocks, compBuf.Bytes())
+	return nil
+}
+
+func (b *Buffer) flushWriter() error {
+	err := b.appendBlock(b.writeBuf.Bytes())
+	if err != nil {
+		return err
+	}
 	b.writeBuf.Reset()
 	return nil
 }
@@ -71,27 +79,33 @@ func (b *Buffer) Write(p []byte) (int, error) {
 	defer b.lock.Unlock()
 
 	written := 0
+	var err error
 	for len(p) > 0 {
 		rem := BlockSize - b.writeBuf.Len()
 		writeLen := len(p)
 		if writeLen > rem {
 			writeLen = rem
 		}
-		n, err := b.writeBuf.Write(p[:writeLen])
-		written += n
-		b.size += int64(n)
-		p = p[writeLen:]
-		if err != nil {
-			return written, err
+		if writeLen == BlockSize {
+			// Skip staging in writeBuf if a complete block is being written.
+			err = b.appendBlock(p[:writeLen])
+		} else {
+			_, err = b.writeBuf.Write(p[:writeLen])
 		}
+		if err != nil {
+			break
+		}
+		written += writeLen
+		b.size += int64(writeLen)
+		p = p[writeLen:]
 		if b.writeBuf.Len() == BlockSize {
 			err = b.flushWriter()
 			if err != nil {
-				return written, err
+				break
 			}
 		}
 	}
-	return written, nil
+	return written, err
 }
 
 func (b *Buffer) Size() int64 {
