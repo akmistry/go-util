@@ -17,6 +17,7 @@ const (
 var (
 	zWriterPool = sync.Pool{}
 	zReaderPool = sync.Pool{}
+	compBufPool = sync.Pool{New: func() interface{} { return new(bytes.Buffer) }}
 )
 
 // A Buffer is a variable-sized buffer, with Write and ReadAt methods (Read can
@@ -37,14 +38,14 @@ func (b *Buffer) appendBlock(p []byte) error {
 	if len(p) != BlockSize {
 		log.Panicf("Invalid flush size %d", len(p))
 	}
-	var compBuf bytes.Buffer
+	compBuf := compBufPool.Get().(*bytes.Buffer)
 	var zw *zlib.Writer
 	if zwi := zWriterPool.Get(); zwi != nil {
 		zw = zwi.(*zlib.Writer)
-		zw.Reset(&compBuf)
+		zw.Reset(compBuf)
 	} else {
 		var err error
-		zw, err = zlib.NewWriterLevel(&compBuf, zlib.BestSpeed)
+		zw, err = zlib.NewWriterLevel(compBuf, zlib.BestSpeed)
 		if err != nil {
 			panic(err)
 		}
@@ -61,7 +62,14 @@ func (b *Buffer) appendBlock(p []byte) error {
 		return err
 	}
 	b.compressedSize += int64(compBuf.Len())
-	b.blocks = append(b.blocks, compBuf.Bytes())
+	block := make([]byte, compBuf.Len())
+	_, err = compBuf.Read(block)
+	if err != nil {
+		panic(err)
+	}
+	b.blocks = append(b.blocks, block)
+	compBuf.Reset()
+	compBufPool.Put(compBuf)
 	return nil
 }
 
