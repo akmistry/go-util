@@ -23,6 +23,11 @@ func (t *Tree) AscendGreaterOrEqual(item Item, iter IterFunc) {
 	t.root.ascendGreaterOrEqual(item.Key(), iter)
 }
 
+func (t *Tree) Clear() {
+	t.root = node{}
+	t.len = 0
+}
+
 func (t *Tree) DescendLessOrEqual(item Item, iter IterFunc) {
 	t.root.descendLessOrEqual(item.Key(), iter)
 }

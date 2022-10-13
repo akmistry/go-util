@@ -154,3 +154,116 @@ func TestTreeStress(t *testing.T) {
 		testAscendDescend(t, &tree, rand.Uint64())
 	}
 }
+
+func generateItems(num int) []TestItem {
+	items := make([]TestItem, num)
+	for i := range items {
+		items[i].key = rand.Uint64()
+	}
+	return items
+}
+
+func BenchmarkInsert(b *testing.B) {
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+			var tree Tree
+			for i := 0; i < b.N; i++ {
+				if i%insertItems == 0 {
+					tree.Clear()
+				}
+				tree.ReplaceOrInsert(&items[i%insertItems])
+			}
+		})
+		insertItems *= 10
+	}
+}
+
+func BenchmarkInsertFull(b *testing.B) {
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+			var tree Tree
+			for i := 0; i < insertItems; i++ {
+				tree.ReplaceOrInsert(&items[i])
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				tree.ReplaceOrInsert(&items[i%insertItems])
+			}
+		})
+		insertItems *= 10
+	}
+}
+
+func BenchmarkGet(b *testing.B) {
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+			var tree Tree
+			for i := 0; i < insertItems; i++ {
+				tree.ReplaceOrInsert(&items[i])
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				tree.Get(&items[i%insertItems])
+			}
+		})
+		insertItems *= 10
+	}
+}
+
+func BenchmarkMax(b *testing.B) {
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+			var tree Tree
+			for i := 0; i < insertItems; i++ {
+				tree.ReplaceOrInsert(&items[i])
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				tree.Max()
+			}
+		})
+		insertItems *= 10
+	}
+}
+
+func BenchmarkDescend(b *testing.B) {
+	const DescendItems = 2
+
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+			var tree Tree
+			for i := 0; i < insertItems; i++ {
+				tree.ReplaceOrInsert(&items[i])
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				count := 0
+				tree.DescendLessOrEqual(&items[i%insertItems], func(item Item) bool {
+					count++
+					return count < DescendItems
+				})
+			}
+		})
+		insertItems *= 10
+	}
+}
