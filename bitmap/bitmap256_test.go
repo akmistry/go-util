@@ -121,6 +121,13 @@ func BenchmarkClear(b *testing.B) {
 	}
 }
 
+func BenchmarkGet(b *testing.B) {
+	var vec Bitmap256
+	for i := 0; i < b.N; i++ {
+		vec.Get(uint8(i))
+	}
+}
+
 func BenchmarkCount(b *testing.B) {
 	var vec Bitmap256
 	for i := 0; i < 64; i++ {
