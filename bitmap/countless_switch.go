@@ -8,17 +8,17 @@ import "math/bits"
 func (v *Bitmap256) CountLess(pos uint8) int {
 	index := int(pos >> 6)
 	mask := (1 << (pos & 63)) - uint64(1)
-	count := bits.OnesCount64(v.words[index] & mask)
+	count := bits.OnesCount64(v[index] & mask)
 
 	switch index {
 	case 3:
-		count += bits.OnesCount64(v.words[2])
+		count += bits.OnesCount64(v[2])
 		fallthrough
 	case 2:
-		count += bits.OnesCount64(v.words[1])
+		count += bits.OnesCount64(v[1])
 		fallthrough
 	case 1:
-		count += bits.OnesCount64(v.words[0])
+		count += bits.OnesCount64(v[0])
 	case 0:
 	}
 	return count
