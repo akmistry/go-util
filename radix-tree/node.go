@@ -85,9 +85,13 @@ func (n *node) insertChildInto(index uint8, item Item, slot int) {
 	} else if item != nil {
 		n.itemBitmap.Set(index)
 
-		n.cItemList = append(n.cItemList, nil)
-		copy(n.cItemList[i+1:], n.cItemList[i:])
-		n.cItemList[i] = item
+		if i < len(n.cItemList) {
+			n.cItemList = append(n.cItemList, nil)
+			copy(n.cItemList[i+1:], n.cItemList[i:])
+			n.cItemList[i] = item
+		} else {
+			n.cItemList = append(n.cItemList, item)
+		}
 	}
 }
 
@@ -120,11 +124,12 @@ func makeNodeFromItems(a, b Item) *node {
 	commonPrefix := commonPrefixLen(aKey, bKey)
 
 	newNode := makeNewNode(aKey, commonPrefix)
-	newNode.insertChildInto(newNode.index(aKey), a, 0)
-	if bKey < aKey {
-		newNode.insertChildInto(newNode.index(bKey), b, 0)
-	} else {
+	if aKey < bKey {
+		newNode.insertChildInto(newNode.index(aKey), a, 0)
 		newNode.insertChildInto(newNode.index(bKey), b, 1)
+	} else {
+		newNode.insertChildInto(newNode.index(bKey), b, 0)
+		newNode.insertChildInto(newNode.index(aKey), a, 1)
 	}
 
 	return newNode
