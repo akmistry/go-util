@@ -121,11 +121,23 @@ func BenchmarkClear(b *testing.B) {
 	}
 }
 
+var dummyStore int
+
 func BenchmarkGet(b *testing.B) {
 	var vec Bitmap256
-	for i := 0; i < b.N; i++ {
-		vec.Get(uint8(i))
+	for i := 0; i < 64; i++ {
+		r := uint8(rand.Uint32())
+		vec.Set(r)
 	}
+	b.ResetTimer()
+
+	z := 0
+	for i := 0; i < b.N; i++ {
+		if vec.Get(uint8(i)) {
+			z++
+		}
+	}
+	dummyStore = z
 }
 
 func BenchmarkCount(b *testing.B) {
@@ -134,10 +146,13 @@ func BenchmarkCount(b *testing.B) {
 		r := uint8(rand.Uint32())
 		vec.Set(r)
 	}
+	b.ResetTimer()
 
+	z := 0
 	for i := 0; i < b.N; i++ {
-		vec.Count()
+		z += vec.Count()
 	}
+	dummyStore = z
 }
 
 func BenchmarkCountLess(b *testing.B) {
@@ -146,8 +161,11 @@ func BenchmarkCountLess(b *testing.B) {
 		r := uint8(rand.Uint32())
 		vec.Set(r)
 	}
+	b.ResetTimer()
 
+	z := 0
 	for i := 0; i < b.N; i++ {
-		vec.CountLess(uint8(i))
+		z += vec.CountLess(uint8(i))
 	}
+	dummyStore = z
 }
