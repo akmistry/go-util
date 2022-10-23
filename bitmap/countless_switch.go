@@ -1,5 +1,3 @@
-//go:build !arm64
-
 package bitmap
 
 import "math/bits"
