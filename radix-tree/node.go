@@ -186,6 +186,10 @@ func (n *node) delete(key uint64) Item {
 		old := nn.delete(key)
 		if nn.empty() {
 			n.insertChildInto(index, nil, slot)
+		} else if len(nn.cItemList) == 1 {
+			// Collapse nodes with a single child
+			n.insertChildInto(index, nn.cItemList[0], slot)
+			nn.cItemList = nil
 		}
 		return old
 	}
