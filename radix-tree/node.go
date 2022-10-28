@@ -207,6 +207,21 @@ func (n *node) max() Item {
 	}
 }
 
+func (n *node) min() Item {
+	for {
+		if n.empty() {
+			return nil
+		}
+
+		first := n.cItemList[0]
+		if nn, ok := first.(*node); ok {
+			n = nn
+			continue
+		}
+		return first
+	}
+}
+
 func (n *node) ascendGreaterOrEqual(key uint64, iter IterFunc) bool {
 	i := 0
 	if n.matchesPrefix(key) {

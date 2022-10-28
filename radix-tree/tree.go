@@ -1,5 +1,9 @@
 package radix
 
+import (
+	"math"
+)
+
 // Tree implements a radix tree (https://en.wikipedia.org/wiki/Radix_tree)
 // with uint64 keys. This implementation is intended to be cache-efficient,
 // minimising the number of cache line accesses (and hence misses).
@@ -7,7 +11,7 @@ package radix
 // The API follows google.BTree, with the exception that the Item interface
 // provides a uint64 key instead of a Less() function.
 //
-// The zero-zalue Tree is ready to use.
+// The zero-value Tree is ready to use.
 //
 // NOTE: Only a subset of functions have been implemented.
 type Tree struct {
@@ -26,6 +30,10 @@ func (t *Tree) AscendGreaterOrEqual(item Item, iter IterFunc) {
 func (t *Tree) Clear() {
 	t.root = node{}
 	t.len = 0
+}
+
+func (t *Tree) Descend(iter IterFunc) {
+	t.root.descendLessOrEqual(math.MaxUint64, iter)
 }
 
 func (t *Tree) DescendLessOrEqual(item Item, iter IterFunc) {
@@ -50,6 +58,10 @@ func (t *Tree) Len() int {
 
 func (t *Tree) Max() Item {
 	return t.root.max()
+}
+
+func (t *Tree) Min() Item {
+	return t.root.min()
 }
 
 func (t *Tree) ReplaceOrInsert(item Item) Item {
