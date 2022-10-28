@@ -78,7 +78,13 @@ func (n *node) insertChildInto(index uint8, item Item, slot int) {
 			n.itemBitmap.Clear(index)
 
 			copy(n.cItemList[i:], n.cItemList[i+1:])
+			// Nil out the last element so that the GC can free it
+			//n.cItemList[len(n.cItemList)-1] = nil
 			n.cItemList = n.cItemList[:len(n.cItemList)-1]
+
+			if len(n.cItemList) > 2 && len(n.cItemList) < (cap(n.cItemList)/3) {
+				n.cItemList = append([]Item(nil), n.cItemList...)
+			}
 		} else {
 			n.cItemList[i] = item
 		}
