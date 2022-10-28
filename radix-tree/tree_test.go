@@ -3,6 +3,7 @@ package radix
 import (
 	"fmt"
 	"math/rand"
+	"runtime"
 	"testing"
 )
 
@@ -31,6 +32,7 @@ func TestTree(t *testing.T) {
 	testAscendDescend(t, &tree, 0xFE00)
 	testAscendDescend(t, &tree, 0xFF00)
 	testAscendDescend(t, &tree, 0xFF01)
+	testAscendDescend(t, &tree, 0xFF0F)
 	testAscendDescend(t, &tree, 0xFF11)
 }
 
@@ -71,13 +73,13 @@ func testAscendDescend(t *testing.T, tree *Tree, start uint64) {
 	tree.DescendLessOrEqual(startKey, func(item Item) bool {
 		if hasKey && first {
 			if item.Key() != start {
-				t.Errorf("First key %v != start Key %016x", item, start)
+				t.Errorf("First key %016x != start Key %016x", item.Key(), start)
 			}
 		}
 		if item.Key() > start {
-			t.Errorf("Key %v greater then %v", item, start)
+			t.Errorf("Key %016x greater then %016x", item.Key(), start)
 		} else if prev != nil && item.Key() > prev.Key() {
-			t.Errorf("Key %v greater then previous %v", item, prev)
+			t.Errorf("Key %016x greater then previous %016x", item.Key(), prev.Key())
 		}
 		prev = item
 		count++
@@ -187,15 +189,37 @@ func BenchmarkInsertFull(b *testing.B) {
 	for i := 0; i < 7; i++ {
 		items := generateItems(insertItems)
 		testName := fmt.Sprintf("%d", insertItems)
+		var tree Tree
+		for i := 0; i < insertItems; i++ {
+			tree.ReplaceOrInsert(&items[i])
+		}
 		b.Run(testName, func(b *testing.B) {
 			b.ReportAllocs()
-			var tree Tree
-			for i := 0; i < insertItems; i++ {
-				tree.ReplaceOrInsert(&items[i])
-			}
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				tree.ReplaceOrInsert(&items[i%insertItems])
+			}
+		})
+		insertItems *= 10
+	}
+}
+
+func BenchmarkDeleteInsert(b *testing.B) {
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		var tree Tree
+		for i := 0; i < insertItems; i++ {
+			tree.ReplaceOrInsert(&items[i])
+		}
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+
+			for i := 0; i < b.N; i++ {
+				item := &items[i%insertItems]
+				tree.Delete(item)
+				item.key = rand.Uint64()
+				tree.ReplaceOrInsert(item)
 			}
 		})
 		insertItems *= 10
@@ -207,13 +231,12 @@ func BenchmarkGet(b *testing.B) {
 	for i := 0; i < 7; i++ {
 		items := generateItems(insertItems)
 		testName := fmt.Sprintf("%d", insertItems)
+		var tree Tree
+		for i := 0; i < insertItems; i++ {
+			tree.ReplaceOrInsert(&items[i])
+		}
 		b.Run(testName, func(b *testing.B) {
 			b.ReportAllocs()
-			var tree Tree
-			for i := 0; i < insertItems; i++ {
-				tree.ReplaceOrInsert(&items[i])
-			}
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				tree.Get(&items[i%insertItems])
 			}
@@ -227,13 +250,12 @@ func BenchmarkMax(b *testing.B) {
 	for i := 0; i < 7; i++ {
 		items := generateItems(insertItems)
 		testName := fmt.Sprintf("%d", insertItems)
+		var tree Tree
+		for i := 0; i < insertItems; i++ {
+			tree.ReplaceOrInsert(&items[i])
+		}
 		b.Run(testName, func(b *testing.B) {
 			b.ReportAllocs()
-			var tree Tree
-			for i := 0; i < insertItems; i++ {
-				tree.ReplaceOrInsert(&items[i])
-			}
-			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				tree.Max()
 			}
@@ -265,5 +287,49 @@ func BenchmarkDescend(b *testing.B) {
 			}
 		})
 		insertItems *= 10
+	}
+}
+
+type simpleInterface interface {
+	Foo() int
+}
+
+type simpleValue struct {
+	a int
+}
+
+func (v *simpleValue) Foo() int {
+	return v.a
+}
+
+func TestSlicing(t *testing.T) {
+	const NumValues = 100
+	// Create a slice and insert random values
+	var s []simpleInterface
+	for i := 0; i < NumValues; i++ {
+		v := &simpleValue{rand.Int()}
+		s = append(s, v)
+	}
+	if len(s) != NumValues {
+		t.Fatalf("len(s) %d != %d", len(s), NumValues)
+	}
+
+	// Make the slice much smaller
+	s = s[:NumValues/10]
+	t.Logf("len(s) = %d, cap(s) = %d", len(s), cap(s))
+	runtime.GC()
+	t.Logf("After GC: len(s) = %d, cap(s) = %d", len(s), cap(s))
+
+	// Reslice back
+	s = s[:NumValues]
+	t.Logf("After reslice: len(s) = %d, cap(s) = %d", len(s), cap(s))
+
+	// Check to see if slice is still populated
+	for i, sv := range s {
+		if sv == nil {
+			t.Errorf("s[%d] == nil", i)
+		}
+		v := sv.(*simpleValue)
+		t.Logf("s[%d] = %d", i, v.a)
 	}
 }
