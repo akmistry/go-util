@@ -40,18 +40,16 @@ func testAscendDescend(t *testing.T, tree *Tree, start uint64) {
 	t.Helper()
 	count := 0
 
-	startKey := &TestItem{start, 0}
-
 	expectedCount := tree.Len()
 	hasKey := false
-	if tree.Get(startKey) != nil {
+	if tree.Get(Key(start)) != nil {
 		hasKey = true
 		expectedCount++
 	}
 
 	var prev Item
 	first := true
-	tree.AscendGreaterOrEqual(startKey, func(item Item) bool {
+	tree.AscendGreaterOrEqual(Key(start), func(item Item) bool {
 		if hasKey && first {
 			if item.Key() != start {
 				t.Errorf("First key %v != start Key %016x", item, start)
@@ -70,7 +68,7 @@ func testAscendDescend(t *testing.T, tree *Tree, start uint64) {
 
 	prev = nil
 	first = true
-	tree.DescendLessOrEqual(startKey, func(item Item) bool {
+	tree.DescendLessOrEqual(Key(start), func(item Item) bool {
 		if hasKey && first {
 			if item.Key() != start {
 				t.Errorf("First key %016x != start Key %016x", item.Key(), start)
@@ -107,8 +105,7 @@ func TestTreeStress(t *testing.T) {
 	}
 
 	for k, v := range keys {
-		key := &TestItem{k, 0}
-		kv := tree.Get(key)
+		kv := tree.Get(Key(k))
 		if kv == nil {
 			t.Errorf("key %016x not found", k)
 		} else if r, ok := kv.(*TestItem); !ok || r.val != v {
@@ -121,8 +118,7 @@ func TestTreeStress(t *testing.T) {
 	for k, v := range keys {
 		// Remove ~50% of keys.
 		if rand.Uint64()%2 == 0 {
-			key := &TestItem{k, 0}
-			old := tree.Delete(key)
+			old := tree.Delete(Key(k))
 			if old == nil {
 				t.Errorf("key %016x not found", k)
 			} else if r, ok := old.(*TestItem); !ok || r.val != v {
@@ -134,8 +130,7 @@ func TestTreeStress(t *testing.T) {
 	}
 
 	for k, v := range keys {
-		key := &TestItem{k, 0}
-		kv := tree.Get(key)
+		kv := tree.Get(Key(k))
 		if kv == nil {
 			t.Errorf("key %016x not found", k)
 		} else if r, ok := kv.(*TestItem); !ok || r.val != v {
@@ -144,8 +139,7 @@ func TestTreeStress(t *testing.T) {
 		testAscendDescend(t, &tree, k)
 	}
 	for k := range removed {
-		key := &TestItem{k, 0}
-		kv := tree.Get(key)
+		kv := tree.Get(Key(k))
 		if kv != nil {
 			t.Errorf("key %016x found", k)
 		}

@@ -77,6 +77,12 @@ type Item interface {
 	Key() uint64
 }
 
+type Key uint64
+
+func (k Key) Key() uint64 {
+	return uint64(k)
+}
+
 // IterFunc allows callers to iterate over the tree with Ascend/Descend*
 // functions. Iteration will stop when this function returns false.
 type IterFunc func(Item) bool
