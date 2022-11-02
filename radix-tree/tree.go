@@ -27,6 +27,10 @@ func (t *Tree) AscendGreaterOrEqual(item Item, iter IterFunc) {
 	t.root.ascendGreaterOrEqual(item.Key(), iter)
 }
 
+func (t *Tree) AscendGreaterOrEqualI(key uint64, iter IterFunc) {
+	t.root.ascendGreaterOrEqual(key, iter)
+}
+
 func (t *Tree) Clear() {
 	t.root = node{}
 	t.len = 0
@@ -40,8 +44,16 @@ func (t *Tree) DescendLessOrEqual(item Item, iter IterFunc) {
 	t.root.descendLessOrEqual(item.Key(), iter)
 }
 
+func (t *Tree) DescendLessOrEqualI(key uint64, iter IterFunc) {
+	t.root.descendLessOrEqual(key, iter)
+}
+
 func (t *Tree) Delete(key Item) Item {
-	old := t.root.delete(key.Key())
+	return t.DeleteI(key.Key())
+}
+
+func (t *Tree) DeleteI(key uint64) Item {
+	old := t.root.delete(key)
 	if old != nil {
 		t.len--
 	}
@@ -50,6 +62,10 @@ func (t *Tree) Delete(key Item) Item {
 
 func (t *Tree) Get(key Item) Item {
 	return t.root.fetch(key.Key())
+}
+
+func (t *Tree) GetI(key uint64) Item {
+	return t.root.fetch(key)
 }
 
 func (t *Tree) Len() int {
