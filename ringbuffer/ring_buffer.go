@@ -52,8 +52,7 @@ func (r *RingBuffer) writeBlock(b []byte) int {
 	return copied
 }
 
-func (r *RingBuffer) Write(b []byte) (int, error) {
-	free := r.Free()
+func (r *RingBuffer) Append(b []byte) (int, error) {
 	n := 0
 	for n < len(b) {
 		written := r.writeBlock(b[n:])
@@ -62,7 +61,7 @@ func (r *RingBuffer) Write(b []byte) (int, error) {
 			break
 		}
 	}
-	if free > len(b) && n != len(b) {
+	if n != len(b) && r.Free() > 0 {
 		panic("unexpected short write")
 	}
 	if n < len(b) {

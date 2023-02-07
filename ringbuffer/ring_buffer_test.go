@@ -25,7 +25,7 @@ func TestRingBuffer(t *testing.T) {
 			writeSize = len(testBuf) - written
 		}
 		writes++
-		n, err := rb.Write(testBuf[written : written+writeSize])
+		n, err := rb.Append(testBuf[written : written+writeSize])
 		written += n
 		if err == ErrBufferFull {
 			fullErrors++

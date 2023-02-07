@@ -192,7 +192,7 @@ func (b *BufferedWriter) Write(buf []byte) (int, error) {
 		b.cond.Signal()
 	}
 	bo.length += len(buf)
-	n, err := b.rb.Write(buf)
+	n, err := b.rb.Append(buf)
 	if err != nil {
 		panic(err)
 	}
