@@ -23,11 +23,11 @@ func NewRingBuffer(buf []byte) *RingBuffer {
 }
 
 func (r *RingBuffer) Len() int {
-	return len(r.buf)
+	return r.length
 }
 
-func (r *RingBuffer) Used() int {
-	return r.length
+func (r *RingBuffer) Cap() int {
+	return len(r.buf)
 }
 
 func (r *RingBuffer) Free() int {

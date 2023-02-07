@@ -20,7 +20,7 @@ func TestRingBuffer(t *testing.T) {
 	rb := NewRingBuffer(buf)
 	outBuf := new(bytes.Buffer)
 	for written < len(testBuf) {
-		writeSize := rand.Intn(rb.Len())
+		writeSize := rand.Intn(rb.Cap())
 		if written+writeSize > len(testBuf) {
 			writeSize = len(testBuf) - written
 		}
@@ -43,8 +43,8 @@ func TestRingBuffer(t *testing.T) {
 		read += readSize
 	}
 
-	if read+rb.Used() != testSize {
-		t.Errorf("read %d + used %d != test size %d", read, rb.Used(), testSize)
+	if read+rb.Len() != testSize {
+		t.Errorf("read %d + used %d != test size %d", read, rb.Len(), testSize)
 	}
 
 	if !bytes.Equal(testBuf[:read], outBuf.Bytes()) {

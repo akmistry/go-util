@@ -31,6 +31,9 @@ type Buffer struct {
 
 	writeBuf bytes.Buffer
 
+	lastDecompIndex int
+	lastDecompBlock []byte
+
 	lock sync.Mutex
 }
 
@@ -129,6 +132,10 @@ func (b *Buffer) CompressedSize() int64 {
 }
 
 func (b *Buffer) readBlock(i int) ([]byte, error) {
+	if b.lastDecompBlock != nil && b.lastDecompIndex == i {
+		return b.lastDecompBlock, nil
+	}
+
 	var err error
 	var zr io.ReadCloser
 	if zri := zReaderPool.Get(); zri != nil {
@@ -148,6 +155,8 @@ func (b *Buffer) readBlock(i int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	b.lastDecompBlock = buf
+	b.lastDecompIndex = i
 	return buf, nil
 }
 
