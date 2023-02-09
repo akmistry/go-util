@@ -82,6 +82,33 @@ func (r *RingBuffer) Peek(off int) []byte {
 	return r.buf[peekStart : peekStart+peekLen]
 }
 
+func (r *RingBuffer) Fetch(b []byte, off int) int {
+	if off > r.length {
+		panic("off > length")
+	}
+	fetchStart := (r.start + off) % len(r.buf)
+	fetchLen := len(b)
+	if fetchLen > (r.length - off) {
+		fetchLen = r.length - off
+	}
+
+	// Data before the wrap around
+	n := fetchLen
+	if (fetchStart + n) > len(r.buf) {
+		n = len(r.buf) - fetchStart
+	}
+	if copy(b, r.buf[fetchStart:fetchStart+n]) != n {
+		panic("copied bytes != n")
+	}
+
+	// And after the wrap around
+	if copy(b[n:], r.buf[:fetchLen-n]) != (fetchLen - n) {
+		panic("copied bytes != (fetchLen - n)")
+	}
+
+	return fetchLen
+}
+
 func (r *RingBuffer) Consume(count int) {
 	if count > r.length {
 		panic("consume count > length")
