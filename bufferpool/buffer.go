@@ -1,26 +1,28 @@
 package bufferpool
 
 type Buffer struct {
-	buf     []byte
+	buf     *[]byte
 	donated bool
 }
 
 func NewBuffer(buf []byte) *Buffer {
+	b := buf[0:len(buf):len(buf)]
 	return &Buffer{
 		// Having cap(buf) == len(buf) prevents the original buffer from being
 		// modified when new data is appended.
-		buf:     buf[0:len(buf):len(buf)],
+		buf:     &b,
 		donated: true,
 	}
 }
 
 func (b *Buffer) growIfNecessary(n int) {
-	if b.donated || len(b.buf)+n > cap(b.buf) {
+	if b.donated || len(*b.buf)+n > cap(*b.buf) {
 		if b.buf == nil && n < MinBufferSize {
 			n = MinBufferSize
 		}
-		newBuf := Get(len(b.buf) + n)[:0]
-		newBuf = append(newBuf, b.buf...)
+		newBuf := Get(len(*b.buf) + n)
+		*newBuf = (*newBuf)[:0]
+		*newBuf = append(*newBuf, *b.buf...)
 		if b.buf != nil && !b.donated {
 			Put(b.buf)
 		}
@@ -31,16 +33,16 @@ func (b *Buffer) growIfNecessary(n int) {
 
 func (b *Buffer) Write(p []byte) (int, error) {
 	b.growIfNecessary(len(p))
-	b.buf = append(b.buf, p...)
+	*b.buf = append(*b.buf, p...)
 	return len(p), nil
 }
 
 func (b *Buffer) Len() int {
-	return len(b.buf)
+	return len(*b.buf)
 }
 
 func (b *Buffer) Bytes() []byte {
-	return b.buf
+	return *b.buf
 }
 
 func (b *Buffer) Reset() {

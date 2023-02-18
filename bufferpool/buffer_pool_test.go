@@ -11,20 +11,20 @@ func TestBufferPool(t *testing.T) {
 	for i := 0; i < maxPow; i++ {
 		size := 1 << uint(i)
 		buf := Get(size)
-		if len(buf) != size {
-			t.Errorf("len(buf) %d != size %d", len(buf), size)
+		if len(*buf) != size {
+			t.Errorf("len(buf) %d != size %d", len(*buf), size)
 		}
-		if cap(buf) != size {
-			t.Errorf("cap(buf) %d != size %d", cap(buf), size)
+		if cap(*buf) != size {
+			t.Errorf("cap(buf) %d != size %d", cap(*buf), size)
 		}
 		Put(buf)
 
 		buf = Get(size)
-		if len(buf) != size {
-			t.Errorf("len(buf) %d != size %d", len(buf), size)
+		if len(*buf) != size {
+			t.Errorf("len(buf) %d != size %d", len(*buf), size)
 		}
-		if cap(buf) != size {
-			t.Errorf("cap(buf) %d != size %d", cap(buf), size)
+		if cap(*buf) != size {
+			t.Errorf("cap(buf) %d != size %d", cap(*buf), size)
 		}
 		Put(buf)
 	}
@@ -42,11 +42,11 @@ func TestBufferPoolNonPow2(t *testing.T) {
 		}
 
 		buf := Get(size)
-		if len(buf) != size {
-			t.Errorf("len(buf) %d != size %d", len(buf), size)
+		if len(*buf) != size {
+			t.Errorf("len(buf) %d != size %d", len(*buf), size)
 		}
-		if cap(buf) > size*2 {
-			t.Errorf("cap(buf) %d > size*2 %d", cap(buf), size*2)
+		if cap(*buf) > size*2 {
+			t.Errorf("cap(buf) %d > size*2 %d", cap(*buf), size*2)
 		}
 		Put(buf)
 	}
