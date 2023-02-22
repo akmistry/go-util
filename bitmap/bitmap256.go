@@ -33,3 +33,17 @@ func (v *Bitmap256) Count() int {
 		bits.OnesCount64(v[2]) +
 		bits.OnesCount64(v[3])
 }
+
+// Return the position of the first true bit in the bitmap, and 256 if there
+// are no true bits.
+func (v *Bitmap256) FindFirstSet() int {
+	pos := 0
+	for i := 0; i < 4; i++ {
+		if v[i] != 0 {
+			pos += bits.TrailingZeros64(v[i])
+			break
+		}
+		pos += 64
+	}
+	return pos
+}

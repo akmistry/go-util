@@ -34,6 +34,10 @@ func TestSeq(t *testing.T) {
 			if c != j {
 				t.Errorf("CountLess(%d) %d != expected %d", j, c, j)
 			}
+			ffs := vec.FindFirstSet()
+			if ffs != 0 {
+				t.Errorf("FindFirstSet() %d != expected 0", ffs)
+			}
 		}
 		if vec.Count() != i+1 {
 			t.Errorf("Count %d != expected %d", vec.Count(), i+1)
@@ -59,6 +63,10 @@ func TestSeq(t *testing.T) {
 				if !vec.Get(uint8(j)) {
 					t.Errorf("Bit at %d not set", j)
 				}
+			}
+			ffs := vec.FindFirstSet()
+			if ffs != i+1 {
+				t.Errorf("FindFirstSet() %d != expected %d", ffs, i+1)
 			}
 		}
 		if vec.Count() != 255-i {
@@ -103,6 +111,28 @@ func TestRandom(t *testing.T) {
 			if vec.Get(uint8(i)) != val {
 				t.Errorf("Bit %d value %v != expected %v", i, vec.Get(uint8(i)), val)
 			}
+		}
+	}
+}
+
+func TestRandomFindFirstSet(t *testing.T) {
+	emptyFfs := (&Bitmap256{}).FindFirstSet()
+	if emptyFfs != 256 {
+		t.Errorf("FindFirstSet() %d != expected 256", emptyFfs)
+	}
+
+	for i := 0; i < 1000; i++ {
+		var vec Bitmap256
+		for i := 0; i < 4; i++ {
+			checkSet(t, &vec, uint8(rand.Uint32()), true)
+		}
+
+		ffs := vec.FindFirstSet()
+		expectedFfs := 0
+		for ; expectedFfs < 256 && !vec.Get(uint8(expectedFfs)); expectedFfs++ {
+		}
+		if ffs != expectedFfs {
+			t.Errorf("FindFirstSet() %d != expected %d", ffs, expectedFfs)
 		}
 	}
 }
@@ -166,6 +196,18 @@ func BenchmarkCountLess(b *testing.B) {
 	z := 0
 	for i := 0; i < b.N; i++ {
 		z += vec.CountLess(uint8(i))
+	}
+	dummyStore = z
+}
+
+func BenchmarkFindFirstSet(b *testing.B) {
+	var vec Bitmap256
+	// Worst case
+	vec.Set(255)
+
+	z := 0
+	for i := 0; i < b.N; i++ {
+		z += vec.FindFirstSet()
 	}
 	dummyStore = z
 }
