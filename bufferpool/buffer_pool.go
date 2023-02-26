@@ -32,7 +32,7 @@ func isPow2(size int) bool {
 	return size > 0 && (size&(size-1)) == 0
 }
 
-func Get(size int) *[]byte {
+func GetUninit(size int) *[]byte {
 	bits := ceilLog2(size)
 	if bits < MinSizeBits || bits > MaxSizeBits {
 		b := make([]byte, size)
@@ -41,7 +41,23 @@ func Get(size int) *[]byte {
 
 	b := pool[bits].Get().(*[]byte)
 	*b = (*b)[:size]
+
 	return b
+}
+
+func Get(size int) *[]byte {
+	buf := GetUninit(size)
+
+	if (*buf)[0] != 0 {
+		// 'make' zero-initialises slices, so if we see a non-zero value in the
+		// first byte, we know the slice was a re-use and needs to be zero'd.
+		zb := (*buf)[:cap(*buf)]
+		for i := range zb {
+			zb[i] = 0
+		}
+	}
+
+	return buf
 }
 
 func Put(buf *[]byte) {
@@ -52,8 +68,8 @@ func Put(buf *[]byte) {
 		return
 	}
 
-	for i := range *buf {
-		(*buf)[i] = 0
-	}
+	// Poison the first byte to indicate to Get() this was a re-used buffer.
+	(*buf)[0] = 1
+
 	pool[bits].Put(buf)
 }
