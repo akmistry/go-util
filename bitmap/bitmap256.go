@@ -47,3 +47,62 @@ func (v *Bitmap256) FindFirstSet() int {
 	}
 	return pos
 }
+
+// Return the position of the n-th (zero-indexed) true bit in the bitmap, and
+// 256 if there are not true bits. The first true bit is n == 0.
+func (v *Bitmap256) FindNthSet(n uint8) int {
+	pos := 0
+	for i := 0; i < 4; i++ {
+		setCount := uint8(bits.OnesCount64(v[i]))
+		if setCount <= n {
+			pos += 64
+			n -= setCount
+			continue
+		}
+
+		temp := v[i]
+		set32 := uint8(bits.OnesCount32(uint32(temp)))
+		if set32 <= n {
+			pos += 32
+			n -= set32
+			temp >>= 32
+		}
+
+		set16 := uint8(bits.OnesCount16(uint16(temp)))
+		if set16 <= n {
+			pos += 16
+			n -= set16
+			temp >>= 16
+		}
+
+		set8 := uint8(bits.OnesCount8(uint8(temp)))
+		if set8 <= n {
+			pos += 8
+			n -= set8
+			temp >>= 8
+		}
+
+		set4 := uint8(bits.OnesCount8(uint8(temp & 0x0F)))
+		if set4 <= n {
+			pos += 4
+			n -= set4
+			temp >>= 4
+		}
+
+		set2 := uint8(bits.OnesCount8(uint8(temp & 0x03)))
+		if set2 <= n {
+			pos += 2
+			n -= set2
+			temp >>= 2
+		}
+
+		set1 := uint8(temp & 1)
+		if set1 <= n {
+			pos++
+			n -= set1
+			temp >>= 1
+		}
+		break
+	}
+	return pos
+}

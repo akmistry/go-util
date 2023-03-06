@@ -115,7 +115,7 @@ func TestRandom(t *testing.T) {
 	}
 }
 
-func TestRandomFindFirstSet(t *testing.T) {
+func TestFindFirstSet_Stress(t *testing.T) {
 	emptyFfs := (&Bitmap256{}).FindFirstSet()
 	if emptyFfs != 256 {
 		t.Errorf("FindFirstSet() %d != expected 256", emptyFfs)
@@ -133,6 +133,94 @@ func TestRandomFindFirstSet(t *testing.T) {
 		}
 		if ffs != expectedFfs {
 			t.Errorf("FindFirstSet() %d != expected %d", ffs, expectedFfs)
+		}
+	}
+}
+
+func checkFindNth(t *testing.T, v *Bitmap256, i uint8, expected int) {
+	t.Helper()
+	p := v.FindNthSet(i)
+	if p != expected {
+		t.Errorf("FindNthSet(%d) %d != expected %d", i, p, expected)
+	}
+}
+
+func TestFindNthSet(t *testing.T) {
+	for i := 0; i < 256; i++ {
+		emptyFns := (&Bitmap256{}).FindNthSet(uint8(i))
+		if emptyFns != 256 {
+			t.Errorf("FindNthSet(%d) %d != expected 256", i, emptyFns)
+		}
+	}
+
+	var bm Bitmap256
+	bm.Set(0)
+	checkFindNth(t, &bm, 0, 0)
+	checkFindNth(t, &bm, 1, 256)
+	checkFindNth(t, &bm, 66, 256)
+
+	bm.Set(1)
+	checkFindNth(t, &bm, 0, 0)
+	checkFindNth(t, &bm, 1, 1)
+	checkFindNth(t, &bm, 2, 256)
+	checkFindNth(t, &bm, 66, 256)
+
+	bm.Clear(0)
+	checkFindNth(t, &bm, 0, 1)
+	checkFindNth(t, &bm, 1, 256)
+	checkFindNth(t, &bm, 66, 256)
+
+	bm.Set(63)
+	bm.Set(64)
+	bm.Set(65)
+	checkFindNth(t, &bm, 0, 1)
+	checkFindNth(t, &bm, 1, 63)
+	checkFindNth(t, &bm, 2, 64)
+	checkFindNth(t, &bm, 3, 65)
+	checkFindNth(t, &bm, 4, 256)
+	checkFindNth(t, &bm, 66, 256)
+
+	bm = Bitmap256{}
+	for i := 0; i < 256; i++ {
+		bm.Set(uint8(i))
+
+		for j := 0; j < 256; j++ {
+			if j > i {
+				checkFindNth(t, &bm, uint8(j), 256)
+			} else {
+				checkFindNth(t, &bm, uint8(j), j)
+			}
+		}
+	}
+	for i := 0; i < 256; i++ {
+		checkFindNth(t, &bm, uint8(i), i)
+	}
+}
+
+func TestFindNthSet_Stress(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		var vec Bitmap256
+
+		numSet := rand.Intn(256)
+		for i := 0; i < numSet; i++ {
+			checkSet(t, &vec, uint8(rand.Uint32()), true)
+		}
+
+		count := 0
+		for pos := 0; pos < 256; pos++ {
+			if vec.Get(uint8(pos)) {
+				resultPos := vec.FindNthSet(uint8(count))
+				if resultPos != pos {
+					t.Errorf("FindNthSet(%d) %d != expected %d", count, resultPos, pos)
+				}
+				count++
+			}
+		}
+		if count < 256 {
+			resultPos := vec.FindNthSet(uint8(count))
+			if resultPos != 256 {
+				t.Errorf("FindNthSet(%d) %d != expected 256", count, resultPos)
+			}
 		}
 	}
 }
@@ -208,6 +296,20 @@ func BenchmarkFindFirstSet(b *testing.B) {
 	z := 0
 	for i := 0; i < b.N; i++ {
 		z += vec.FindFirstSet()
+	}
+	dummyStore = z
+}
+
+func BenchmarkFindNthSet(b *testing.B) {
+	var vec Bitmap256
+	// Worst case
+	for i := 0; i < 256; i++ {
+		vec.Set(uint8(i))
+	}
+
+	z := 0
+	for i := 0; i < b.N; i++ {
+		z += vec.FindNthSet(255)
 	}
 	dummyStore = z
 }
