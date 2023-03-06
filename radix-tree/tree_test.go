@@ -265,12 +265,12 @@ func BenchmarkDescend(b *testing.B) {
 	for i := 0; i < 7; i++ {
 		items := generateItems(insertItems)
 		testName := fmt.Sprintf("%d", insertItems)
+		var tree Tree
+		for i := 0; i < insertItems; i++ {
+			tree.ReplaceOrInsert(&items[i])
+		}
 		b.Run(testName, func(b *testing.B) {
 			b.ReportAllocs()
-			var tree Tree
-			for i := 0; i < insertItems; i++ {
-				tree.ReplaceOrInsert(&items[i])
-			}
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				count := 0
