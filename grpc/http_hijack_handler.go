@@ -8,6 +8,10 @@ import (
 	"sync"
 )
 
+const (
+	hijackedNet = "hijacked-http"
+)
+
 type hijackHandler struct {
 	lock sync.Mutex
 
@@ -60,7 +64,7 @@ func (h *hijackHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *hijackHandler) Accept() (net.Conn, error) {
 	select {
 	case <-h.done:
-		return nil, &net.OpError{Op: "accept", Net: "hijacked-http", Err: io.ErrClosedPipe}
+		return nil, &net.OpError{Op: "accept", Net: hijackedNet, Err: io.ErrClosedPipe}
 	case conn := <-h.connCh:
 		return conn, nil
 	}
@@ -77,6 +81,16 @@ func (h *hijackHandler) Close() error {
 	return nil
 }
 
+type hijackedAddr string
+
+func (a hijackedAddr) Network() string {
+	return hijackedNet
+}
+
+func (a hijackedAddr) String() string {
+	return string(a)
+}
+
 func (h *hijackHandler) Addr() net.Addr {
-	return nil
+	return hijackedAddr("hijacked-http:TODO")
 }

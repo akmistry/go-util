@@ -3,6 +3,7 @@ package grpc
 import (
 	"bufio"
 	"net"
+	"time"
 )
 
 type hijackedConn struct {
@@ -23,6 +24,8 @@ func newHijackedConn(conn net.Conn, bufr *bufio.Reader, bufw *bufio.Writer) (_ *
 			return
 		}
 	}
+
+	conn.SetDeadline(time.Time{})
 
 	return &hijackedConn{Conn: conn, bufr: bufr}, nil
 }
