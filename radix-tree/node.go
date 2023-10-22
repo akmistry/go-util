@@ -64,30 +64,32 @@ func (n *node) getChild(index uint8) (Item, int) {
 	return nil, i
 }
 
+func (n *node) deleteChildFrom(index uint8, slot int) {
+	if !n.itemBitmap.Get(index) {
+		return
+	}
+	n.itemBitmap.Clear(index)
+
+	copy(n.cItemList[slot:], n.cItemList[slot+1:])
+	// Nil out the last element so that the GC can free it
+	n.cItemList[len(n.cItemList)-1] = nil
+	n.cItemList = n.cItemList[:len(n.cItemList)-1]
+
+	if len(n.cItemList) > 2 && len(n.cItemList) < (cap(n.cItemList)/3) {
+		n.cItemList = append([]Item(nil), n.cItemList...)
+	}
+}
+
 func (n *node) insertChildInto(index uint8, item Item, slot int) {
-	i := slot
-	if i < len(n.cItemList) && n.itemBitmap.Get(index) {
-		if item == nil {
-			n.itemBitmap.Clear(index)
-
-			copy(n.cItemList[i:], n.cItemList[i+1:])
-			// Nil out the last element so that the GC can free it
-			n.cItemList[len(n.cItemList)-1] = nil
-			n.cItemList = n.cItemList[:len(n.cItemList)-1]
-
-			if len(n.cItemList) > 2 && len(n.cItemList) < (cap(n.cItemList)/3) {
-				n.cItemList = append([]Item(nil), n.cItemList...)
-			}
-		} else {
-			n.cItemList[i] = item
-		}
-	} else if item != nil {
+	if n.itemBitmap.Get(index) {
+		n.cItemList[slot] = item
+	} else {
 		n.itemBitmap.Set(index)
 
-		if i < len(n.cItemList) {
+		if slot < len(n.cItemList) {
 			n.cItemList = append(n.cItemList, nil)
-			copy(n.cItemList[i+1:], n.cItemList[i:])
-			n.cItemList[i] = item
+			copy(n.cItemList[slot+1:], n.cItemList[slot:])
+			n.cItemList[slot] = item
 		} else {
 			n.cItemList = append(n.cItemList, item)
 		}
@@ -178,7 +180,7 @@ func (n *node) delete(key uint64) Item {
 	if nn, ok := next.(*node); ok {
 		old := nn.delete(key)
 		if nn.empty() {
-			n.insertChildInto(index, nil, slot)
+			n.deleteChildFrom(index, slot)
 		} else if len(nn.cItemList) == 1 {
 			// Collapse nodes with a single child
 			n.insertChildInto(index, nn.cItemList[0], slot)
@@ -187,7 +189,7 @@ func (n *node) delete(key uint64) Item {
 		return old
 	}
 	if next.Key() == key {
-		n.insertChildInto(index, nil, slot)
+		n.deleteChildFrom(index, slot)
 		return next
 	}
 
