@@ -257,6 +257,32 @@ func BenchmarkMax(b *testing.B) {
 	}
 }
 
+func BenchmarkAscend(b *testing.B) {
+	const AscendItems = 100
+
+	insertItems := 1
+	for i := 0; i < 7; i++ {
+		items := generateItems(insertItems)
+		testName := fmt.Sprintf("%d", insertItems)
+		var tree Tree
+		for i := 0; i < insertItems; i++ {
+			tree.ReplaceOrInsert(&items[i])
+		}
+		b.Run(testName, func(b *testing.B) {
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				count := 0
+				tree.AscendGreaterOrEqual(&items[i%insertItems], func(item Item) bool {
+					count++
+					return count < AscendItems
+				})
+			}
+		})
+		insertItems *= 10
+	}
+}
+
 func BenchmarkDescend(b *testing.B) {
 	const DescendItems = 2
 
@@ -280,5 +306,15 @@ func BenchmarkDescend(b *testing.B) {
 			}
 		})
 		insertItems *= 10
+	}
+}
+
+func BenchmarkCommonPrefixLen(b *testing.B) {
+	const NumItems = 256
+	items := generateItems(NumItems)
+	for i := 0; i < b.N; i++ {
+		a := items[i%NumItems].Key()
+		b := items[(i+1)%NumItems].Key()
+		commonPrefixLen(a, b)
 	}
 }

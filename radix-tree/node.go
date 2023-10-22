@@ -1,6 +1,8 @@
 package radix
 
 import (
+	"math/bits"
+
 	"github.com/akmistry/go-util/bitmap"
 )
 
@@ -17,17 +19,8 @@ func prefixMask(prefixLen int) uint64 {
 }
 
 func commonPrefixLen(a, b uint64) int {
-	const topMask = 0xFF00000000000000
 	c := a ^ b
-	zeros := 0
-	for i := 0; i < 8; i++ {
-		if c&topMask != 0 {
-			break
-		}
-		zeros++
-		c <<= 8
-	}
-	return zeros
+	return bits.LeadingZeros64(c) / 8
 }
 
 func makeNewNode(prefix uint64, prefixLen int) *node {
