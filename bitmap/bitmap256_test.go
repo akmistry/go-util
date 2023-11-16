@@ -17,6 +17,17 @@ func checkSet(t *testing.T, v *Bitmap256, pos uint8, value bool) {
 	}
 }
 
+func checkFullEmpty(t *testing.T, v *Bitmap256) {
+	t.Helper()
+
+	if v.Full() != (v.Count() == 256) {
+		t.Errorf("Unexpected Full %v : count %d", v.Full(), v.Count())
+	}
+	if v.Empty() != (v.Count() == 0) {
+		t.Errorf("Unexpected Empty %v : count %d", v.Empty(), v.Count())
+	}
+}
+
 func TestSeq(t *testing.T) {
 	var vec Bitmap256
 
@@ -42,6 +53,7 @@ func TestSeq(t *testing.T) {
 		if vec.Count() != i+1 {
 			t.Errorf("Count %d != expected %d", vec.Count(), i+1)
 		}
+		checkFullEmpty(t, &vec)
 	}
 
 	for i := 0; i < 256; i++ {
@@ -312,4 +324,38 @@ func BenchmarkFindNthSet(b *testing.B) {
 		z += vec.FindNthSet(255)
 	}
 	dummyStore = z
+}
+
+func BenchmarkEmpty(b *testing.B) {
+	var vec Bitmap256
+	for i := 0; i < 64; i++ {
+		r := uint8(rand.Uint32())
+		vec.Set(r)
+	}
+	b.ResetTimer()
+
+	z := false
+	for i := 0; i < b.N; i++ {
+		z = vec.Empty() || z
+	}
+	if z {
+		b.Logf("Unreachable: %v", z)
+	}
+}
+
+func BenchmarkFull(b *testing.B) {
+	var vec Bitmap256
+	for i := 0; i < 64; i++ {
+		r := uint8(rand.Uint32())
+		vec.Set(r)
+	}
+	b.ResetTimer()
+
+	z := false
+	for i := 0; i < b.N; i++ {
+		z = vec.Full() || z
+	}
+	if z {
+		b.Logf("Unreachable: %v", z)
+	}
 }

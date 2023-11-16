@@ -1,6 +1,7 @@
 package bitmap
 
 import (
+	"math"
 	"math/bits"
 )
 
@@ -24,6 +25,14 @@ func (v *Bitmap256) Clear(pos uint8) {
 // Return the bit value at position pos.
 func (v *Bitmap256) Get(pos uint8) bool {
 	return ((v[pos>>6] >> (pos & 63)) & 1) == 1
+}
+
+func (v *Bitmap256) Empty() bool {
+	return (v[0] | v[1] | v[2] | v[3]) == 0
+}
+
+func (v *Bitmap256) Full() bool {
+	return (v[0] & v[1] & v[2] & v[3]) == math.MaxUint64
 }
 
 // Return the number of true bits ("population count").
