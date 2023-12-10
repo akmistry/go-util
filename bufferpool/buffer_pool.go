@@ -1,6 +1,7 @@
 package bufferpool
 
 import (
+	"bytes"
 	"math/bits"
 	"sync"
 )
@@ -12,7 +13,10 @@ const (
 	MinBufferSize = 1 << MinSizeBits
 )
 
-var pool [MaxSizeBits + 1]*sync.Pool
+var (
+	pool           [MaxSizeBits + 1]*sync.Pool
+	byteBufferPool [MaxSizeBits + 1]*sync.Pool
+)
 
 func init() {
 	for i := MinSizeBits; i <= MaxSizeBits; i++ {
@@ -20,6 +24,9 @@ func init() {
 		pool[i] = &sync.Pool{New: func() interface{} {
 			b := make([]byte, size)
 			return &b
+		}}
+		byteBufferPool[i] = &sync.Pool{New: func() interface{} {
+			return bytes.NewBuffer(make([]byte, 0, size))
 		}}
 	}
 }
@@ -60,6 +67,17 @@ func Get(size int) *[]byte {
 	return buf
 }
 
+func GetBuffer(size int) *bytes.Buffer {
+	bits := ceilLog2(size)
+	if bits < MinSizeBits {
+		bits = MinSizeBits
+	} else if bits > MaxSizeBits {
+		return bytes.NewBuffer(make([]byte, 0, size))
+	}
+
+	return byteBufferPool[bits].Get().(*bytes.Buffer)
+}
+
 func Put(buf *[]byte) {
 	size := cap(*buf)
 	*buf = (*buf)[:size]
@@ -72,4 +90,15 @@ func Put(buf *[]byte) {
 	(*buf)[0] = 1
 
 	pool[bits].Put(buf)
+}
+
+func PutBuffer(b *bytes.Buffer) {
+	size := b.Cap()
+	bits := ceilLog2(size)
+	if !isPow2(size) || bits < MinSizeBits || bits > MaxSizeBits {
+		return
+	}
+
+	b.Reset()
+	byteBufferPool[bits].Put(b)
 }
