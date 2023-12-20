@@ -46,15 +46,23 @@ func (v *Bitmap256) Count() int {
 // Return the position of the first true bit in the bitmap, and 256 if there
 // are no true bits.
 func (v *Bitmap256) FindFirstSet() int {
-	pos := 0
-	for i := 0; i < 4; i++ {
-		if v[i] != 0 {
-			pos += bits.TrailingZeros64(v[i])
-			break
-		}
-		pos += 64
+	return v.FindNextSet(0)
+}
+
+func (v *Bitmap256) FindNextSet(pos uint8) int {
+	i := int(pos >> 6)
+	off := pos & 63
+	masked := v[i] & (^(uint64(1<<off) - 1))
+	if masked != 0 {
+		return (i << 6) + bits.TrailingZeros64(masked)
 	}
-	return pos
+	i++
+	for ; i < 4; i++ {
+		if v[i] != 0 {
+			return (i << 6) + bits.TrailingZeros64(v[i])
+		}
+	}
+	return 256
 }
 
 // Return the position of the n-th (zero-indexed) true bit in the bitmap, and

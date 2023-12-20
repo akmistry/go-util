@@ -149,6 +149,81 @@ func TestFindFirstSet_Stress(t *testing.T) {
 	}
 }
 
+func TestFindNextSet(t *testing.T) {
+	var vec Bitmap256
+	// Empty bitmap
+	for i := 0; i < 256; i++ {
+		next := vec.FindNextSet(uint8(i))
+		if next != 256 {
+			t.Errorf("empty set next %d != 256", next)
+		}
+	}
+
+	// Full bitmap
+	for i := 0; i < 256; i++ {
+		vec.Set(uint8(i))
+	}
+	for i := 0; i < 256; i++ {
+		next := vec.FindNextSet(uint8(i))
+		if next != i {
+			t.Errorf("full set next %d != %d", next, i)
+		}
+	}
+
+	// Single bit set, exhaustive test
+	vec = Bitmap256{}
+	for i := 0; i < 256; i++ {
+		vec.Set(uint8(i))
+		for j := 0; j <= i; j++ {
+			next := vec.FindNextSet(uint8(j))
+			if next != i {
+				t.Errorf("single vec(%d) next(%d) %d != %d",
+					i, j, next, i)
+			}
+		}
+		for j := i + 1; j < 256; j++ {
+			next := vec.FindNextSet(uint8(j))
+			if next != 256 {
+				t.Errorf("single vec(%d) next(%d) %d != 256",
+					i, j, next)
+			}
+		}
+		vec.Clear(uint8(i))
+	}
+
+}
+
+func TestFindNextSet_Stress(t *testing.T) {
+	const Iterations = 100000
+	const MaxSet = 16
+
+	for i := 0; i < Iterations; i++ {
+		var vec Bitmap256
+		numSet := rand.Intn(MaxSet)
+		for j := 0; j < numSet; j++ {
+			vec.Set(uint8(rand.Uint32()))
+		}
+
+		start := uint8(rand.Uint32())
+		next := vec.FindNextSet(start)
+		//t.Logf("start %d, next %d", start, next)
+		if next < int(start) {
+			t.Errorf("next %d < start %d", next, start)
+		} else if next == int(start) {
+			if !vec.Get(start) {
+				t.Errorf("start == next %d != true", next)
+			}
+		} else {
+			for j := int(start); j < next; j++ {
+				if vec.Get(uint8(j)) {
+					t.Errorf("Unexpected set element at %d for start = %d, next = %d",
+						j, start, next)
+				}
+			}
+		}
+	}
+}
+
 func checkFindNth(t *testing.T, v *Bitmap256, i uint8, expected int) {
 	t.Helper()
 	p := v.FindNthSet(i)
@@ -308,6 +383,35 @@ func BenchmarkFindFirstSet(b *testing.B) {
 	z := 0
 	for i := 0; i < b.N; i++ {
 		z += vec.FindFirstSet()
+	}
+	dummyStore = z
+}
+
+func BenchmarkFindNextSet_Best(b *testing.B) {
+	var vec Bitmap256
+	// Best case. Using a random number prevents the compiler from
+	// optimising away most code.
+	k := uint8(rand.Intn(8))
+	vec.Set(k + 1)
+
+	z := 0
+	for i := 0; i < b.N; i++ {
+		z += vec.FindNextSet(k)
+	}
+	dummyStore = z
+}
+
+func BenchmarkFindNextSet_Worst(b *testing.B) {
+	var vec Bitmap256
+	// Worst case
+	vec.Set(255)
+
+	// Using a random number prevents the compiler from optimising away most
+	// code.
+	k := uint8(rand.Intn(8))
+	z := 0
+	for i := 0; i < b.N; i++ {
+		z += vec.FindNextSet(k)
 	}
 	dummyStore = z
 }
