@@ -135,7 +135,7 @@ func TestFindFirstSet_Stress(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		var vec Bitmap256
-		for i := 0; i < 4; i++ {
+		for j := 0; j < 4; j++ {
 			checkSet(t, &vec, uint8(rand.Uint32()), true)
 		}
 
