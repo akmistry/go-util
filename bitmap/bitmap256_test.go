@@ -261,13 +261,13 @@ func BenchmarkGet(b *testing.B) {
 	}
 	b.ResetTimer()
 
-	z := 0
+	z := false
 	for i := 0; i < b.N; i++ {
-		if vec.Get(uint8(i)) {
-			z++
-		}
+		z = vec.Get(uint8(i)) || z
 	}
-	dummyStore = z
+	if !z {
+		b.Logf("Unreachable: %v", z)
+	}
 }
 
 func BenchmarkCount(b *testing.B) {
@@ -319,9 +319,12 @@ func BenchmarkFindNthSet(b *testing.B) {
 		vec.Set(uint8(i))
 	}
 
+	// Using a random number prevents the compiler from optimising away most
+	// code.
+	k := uint8(250 + rand.Intn(6))
 	z := 0
 	for i := 0; i < b.N; i++ {
-		z += vec.FindNthSet(255)
+		z += vec.FindNthSet(k)
 	}
 	dummyStore = z
 }
