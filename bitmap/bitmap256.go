@@ -27,10 +27,12 @@ func (v *Bitmap256) Get(pos uint8) bool {
 	return ((v[pos>>6] >> (pos & 63)) & 1) == 1
 }
 
+// Return whether all bits are false
 func (v *Bitmap256) Empty() bool {
 	return (v[0] | v[1] | v[2] | v[3]) == 0
 }
 
+// Return whether all bits are true
 func (v *Bitmap256) Full() bool {
 	return (v[0] & v[1] & v[2] & v[3]) == math.MaxUint64
 }
@@ -49,6 +51,8 @@ func (v *Bitmap256) FindFirstSet() int {
 	return v.FindNextSet(0)
 }
 
+// Return the position of the first true bit starting at position pos, and
+// 256 if there are no further true bits.
 func (v *Bitmap256) FindNextSet(pos uint8) int {
 	i := int(pos >> 6)
 	off := pos & 63
@@ -60,6 +64,30 @@ func (v *Bitmap256) FindNextSet(pos uint8) int {
 	for ; i < 4; i++ {
 		if v[i] != 0 {
 			return (i << 6) + bits.TrailingZeros64(v[i])
+		}
+	}
+	return 256
+}
+
+// Return the position of the first false bit in the bitmap, and 256 if there
+// are no false bits.
+func (v *Bitmap256) FindFirstClear() int {
+	return v.FindNextClear(0)
+}
+
+// Return the position of the first false bit starting at position pos, and
+// 256 if there are no further false bits.
+func (v *Bitmap256) FindNextClear(pos uint8) int {
+	i := int(pos >> 6)
+	off := pos & 63
+	masked := v[i] | (uint64(1<<off) - 1)
+	if masked != math.MaxUint64 {
+		return (i << 6) + bits.TrailingZeros64(^masked)
+	}
+	i++
+	for ; i < 4; i++ {
+		if v[i] != math.MaxUint64 {
+			return (i << 6) + bits.TrailingZeros64(^v[i])
 		}
 	}
 	return 256

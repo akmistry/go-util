@@ -190,11 +190,10 @@ func TestFindNextSet(t *testing.T) {
 		}
 		vec.Clear(uint8(i))
 	}
-
 }
 
 func TestFindNextSet_Stress(t *testing.T) {
-	const Iterations = 100000
+	const Iterations = 10000
 	const MaxSet = 16
 
 	for i := 0; i < Iterations; i++ {
@@ -204,26 +203,113 @@ func TestFindNextSet_Stress(t *testing.T) {
 			vec.Set(uint8(rand.Uint32()))
 		}
 
-		start := uint8(rand.Uint32())
-		next := vec.FindNextSet(start)
-		//t.Logf("start %d, next %d", start, next)
-		if next < int(start) {
-			t.Errorf("next %d < start %d", next, start)
-		} else if next == int(start) {
-			if !vec.Get(start) {
-				t.Errorf("start == next %d != true", next)
-			}
-		} else {
-			for j := int(start); j < next; j++ {
-				if vec.Get(uint8(j)) {
-					t.Errorf("Unexpected set element at %d for start = %d, next = %d",
-						j, start, next)
+		// Exhaustively check every case for this bit pattern
+		for j := 0; j < 256; j++ {
+			start := uint8(j)
+			next := vec.FindNextSet(start)
+			//t.Logf("start %d, next %d", start, next)
+			if next < int(start) {
+				t.Errorf("next %d < start %d", next, start)
+			} else if next == int(start) {
+				if !vec.Get(start) {
+					t.Errorf("start == next %d != true", next)
+				}
+			} else {
+				for k := int(start); k < next; k++ {
+					if vec.Get(uint8(k)) {
+						t.Errorf("Unexpected set element at %d for start = %d, next = %d",
+							k, start, next)
+					}
+				}
+				if next < 256 && !vec.Get(uint8(next)) {
+					t.Errorf("next %d not set", next)
 				}
 			}
 		}
 	}
 }
 
+func TestFindNextClear(t *testing.T) {
+	var vec Bitmap256
+	// Empty bitmap
+	for i := 0; i < 256; i++ {
+		next := vec.FindNextClear(uint8(i))
+		if next != i {
+			t.Errorf("empty set next %d != %d", next, i)
+		}
+	}
+
+	// Full bitmap
+	for i := 0; i < 256; i++ {
+		vec.Set(uint8(i))
+	}
+	for i := 0; i < 256; i++ {
+		next := vec.FindNextClear(uint8(i))
+		if next != 256 {
+			t.Errorf("full set next %d != 256", next)
+		}
+	}
+
+	// Single bit unset, exhaustive test
+	for i := 0; i < 256; i++ {
+		vec.Clear(uint8(i))
+		for j := 0; j <= i; j++ {
+			next := vec.FindNextClear(uint8(j))
+			if next != i {
+				t.Errorf("single vec(%d) next(%d) %d != %d",
+					i, j, next, i)
+			}
+		}
+		for j := i + 1; j < 256; j++ {
+			next := vec.FindNextClear(uint8(j))
+			if next != 256 {
+				t.Errorf("single vec(%d) next(%d) %d != 256",
+					i, j, next)
+			}
+		}
+		vec.Set(uint8(i))
+	}
+}
+
+func TestFindNextClear_Stress(t *testing.T) {
+	const Iterations = 10000
+	const MaxClear = 16
+
+	for i := 0; i < Iterations; i++ {
+		var vec Bitmap256
+		for j := 0; j < 256; j++ {
+			vec.Set(uint8(j))
+		}
+		numSet := rand.Intn(MaxClear)
+		for j := 0; j < numSet; j++ {
+			vec.Clear(uint8(rand.Uint32()))
+		}
+
+		// Exhaustively check every case for this bit pattern
+		for j := 0; j < 256; j++ {
+			start := uint8(j)
+			next := vec.FindNextClear(start)
+			//t.Logf("start %d, next %d", start, next)
+			if next < int(start) {
+				t.Errorf("next %d < start %d", next, start)
+			} else if next == int(start) {
+				if vec.Get(start) {
+					t.Errorf("start == next %d != false", next)
+				}
+			} else {
+				for k := int(start); k < next; k++ {
+					if !vec.Get(uint8(k)) {
+						t.Errorf("Unexpected clear element at %d for start = %d, next = %d",
+							k, start, next)
+					}
+				}
+				if next < 256 && vec.Get(uint8(next)) {
+					t.Errorf("next %d not clear", next)
+				}
+			}
+		}
+	}
+}
 func checkFindNth(t *testing.T, v *Bitmap256, i uint8, expected int) {
 	t.Helper()
 	p := v.FindNthSet(i)
@@ -341,7 +427,7 @@ func BenchmarkGet(b *testing.B) {
 		z = vec.Get(uint8(i)) || z
 	}
 	if !z {
-		b.Logf("Unreachable: %v", z)
+		dummyStore = 7
 	}
 }
 
